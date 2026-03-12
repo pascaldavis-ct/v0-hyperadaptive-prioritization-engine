@@ -207,60 +207,62 @@ export default function PrioritizationDashboard() {
             }`}
           >
             <div className="overflow-hidden">
-              <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 p-6 shadow-xl backdrop-blur-xl">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                    <div className="mb-3 flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
-                        <Zap className="h-4 w-4 text-amber-400" />
+              <Card>
+                <CardContent className="p-6">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="group rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15">
+                          <Zap className="h-4 w-4 text-amber-500" />
+                        </div>
+                        <span className="font-semibold text-foreground">Impact</span>
                       </div>
-                      <span className="font-semibold text-white">Impact</span>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Breaks bottlenecks
+                        <span className="mt-1 block text-xs text-muted-foreground/70">
+                          Score 5 = 10x workflow speed
+                        </span>
+                      </p>
                     </div>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      Breaks bottlenecks
-                      <span className="mt-1 block text-xs text-slate-400">
-                        Score 5 = 10x workflow speed
-                      </span>
-                    </p>
+
+                    <div className="group rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15">
+                          <Hammer className="h-4 w-4 text-emerald-500" />
+                        </div>
+                        <span className="font-semibold text-foreground">Feasibility</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Ready to build
+                        <span className="mt-1 block text-xs text-muted-foreground/70">
+                          Score 5 = 2-4 week delivery
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="group rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15">
+                          <Layers className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <span className="font-semibold text-foreground">Scalability</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        API-ready automation
+                        <span className="mt-1 block text-xs text-muted-foreground/70">
+                          Score 5 = Zero-touch scale
+                        </span>
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                    <div className="mb-3 flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
-                        <Hammer className="h-4 w-4 text-emerald-400" />
-                      </div>
-                      <span className="font-semibold text-white">Feasibility</span>
-                    </div>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      Ready to build
-                      <span className="mt-1 block text-xs text-slate-400">
-                        Score 5 = 2-4 week delivery
-                      </span>
+                  <div className="mt-5 border-t border-border pt-4">
+                    <p className="text-center text-xs italic text-muted-foreground">
+                      IFS ensures we prioritize transformation over individual task-speed improvements.
                     </p>
                   </div>
-
-                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                    <div className="mb-3 flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20">
-                        <Layers className="h-4 w-4 text-blue-400" />
-                      </div>
-                      <span className="font-semibold text-white">Scalability</span>
-                    </div>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      API-ready automation
-                      <span className="mt-1 block text-xs text-slate-400">
-                        Score 5 = Zero-touch scale
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 border-t border-white/10 pt-4">
-                  <p className="text-center text-xs italic text-slate-400">
-                    IFS ensures we prioritize transformation over individual task-speed improvements.
-                  </p>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
