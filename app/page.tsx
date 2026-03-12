@@ -256,8 +256,8 @@ export default function PrioritizationDashboard() {
                     </div>
                   </div>
 
-                  <div className="mt-5 border-t border-border pt-4">
-                    <p className="text-center text-xs italic text-muted-foreground">
+                  <div className="mt-6 rounded-lg bg-primary/5 px-5 py-4">
+                    <p className="text-balance text-center text-base font-medium leading-relaxed text-foreground">
                       IFS ensures we prioritize transformation over individual task-speed improvements.
                     </p>
                   </div>
