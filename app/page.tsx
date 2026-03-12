@@ -18,6 +18,10 @@ import {
   Upload,
   FileText,
   X,
+  Hammer,
+  Layers,
+  Info,
+  ChevronDown,
 } from 'lucide-react'
 import * as pdfjs from 'pdfjs-dist'
 
@@ -39,6 +43,7 @@ export default function PrioritizationDashboard() {
   const [userStory, setUserStory] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState(true)
 
   // PDF upload state
   const [clientPdf, setClientPdf] = useState<{ name: string; text: string } | null>(null)
@@ -179,6 +184,87 @@ export default function PrioritizationDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
+        {/* IFS Framework Reference - Glassmorphism Card */}
+        <div className="mb-8">
+          <button
+            onClick={() => setIsFrameworkOpen(!isFrameworkOpen)}
+            className="mb-4 flex w-full items-center justify-between rounded-lg border border-border/50 bg-card/80 px-4 py-3 text-left backdrop-blur-sm transition-colors hover:bg-card"
+          >
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">The IFS Framework</span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                isFrameworkOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              isFrameworkOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 p-6 shadow-xl backdrop-blur-xl">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
+                        <Zap className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <span className="font-semibold text-white">Impact</span>
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-300">
+                      Breaks bottlenecks
+                      <span className="mt-1 block text-xs text-slate-400">
+                        Score 5 = 10x workflow speed
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
+                        <Hammer className="h-4 w-4 text-emerald-400" />
+                      </div>
+                      <span className="font-semibold text-white">Feasibility</span>
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-300">
+                      Ready to build
+                      <span className="mt-1 block text-xs text-slate-400">
+                        Score 5 = 2-4 week delivery
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20">
+                        <Layers className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <span className="font-semibold text-white">Scalability</span>
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-300">
+                      API-ready automation
+                      <span className="mt-1 block text-xs text-slate-400">
+                        Score 5 = Zero-touch scale
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <p className="text-center text-xs italic text-slate-400">
+                    IFS ensures we prioritize transformation over individual task-speed improvements.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Left Column - Input */}
           <div className="space-y-6">
