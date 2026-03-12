@@ -15,7 +15,14 @@ import {
   TrendingUp,
   Sparkles,
   ArrowRight,
+  Upload,
+  FileText,
+  X,
 } from 'lucide-react'
+import * as pdfjs from 'pdfjs-dist'
+
+// Set up PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 interface AnalysisResult {
   bottleneckReasoning: string
@@ -33,6 +40,12 @@ export default function PrioritizationDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
 
+  // PDF upload state
+  const [clientPdf, setClientPdf] = useState<{ name: string; text: string } | null>(null)
+  const [storyPdf, setStoryPdf] = useState<{ name: string; text: string } | null>(null)
+  const [isExtractingClient, setIsExtractingClient] = useState(false)
+  const [isExtractingStory, setIsExtractingStory] = useState(false)
+
   // Human-adjusted scores (initialized from AI draft)
   const [impact, setImpact] = useState(3)
   const [feasibility, setFeasibility] = useState(3)
@@ -49,6 +62,76 @@ export default function PrioritizationDashboard() {
     if (ifsScore >= 40) return { label: 'Medium Priority', color: 'bg-amber-500' }
     return { label: 'Low Priority', color: 'bg-red-500' }
   }, [ifsScore])
+
+  // Extract text from PDF
+  const extractPdfText = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
+    let fullText = ''
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items
+        .map((item) => ('str' in item ? item.str : ''))
+        .join(' ')
+      fullText += pageText + '\n'
+    }
+
+    return fullText.trim()
+  }
+
+  // Handle PDF upload for client context
+  const handleClientPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || file.type !== 'application/pdf') return
+
+    setIsExtractingClient(true)
+    try {
+      const text = await extractPdfText(file)
+      setClientPdf({ name: file.name, text })
+      setClientContext((prev) => (prev ? `${prev}\n\n--- PDF Content ---\n${text}` : text))
+    } catch (error) {
+      console.error('Failed to extract PDF:', error)
+    } finally {
+      setIsExtractingClient(false)
+      e.target.value = ''
+    }
+  }
+
+  // Handle PDF upload for user story
+  const handleStoryPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || file.type !== 'application/pdf') return
+
+    setIsExtractingStory(true)
+    try {
+      const text = await extractPdfText(file)
+      setStoryPdf({ name: file.name, text })
+      setUserStory((prev) => (prev ? `${prev}\n\n--- PDF Content ---\n${text}` : text))
+    } catch (error) {
+      console.error('Failed to extract PDF:', error)
+    } finally {
+      setIsExtractingStory(false)
+      e.target.value = ''
+    }
+  }
+
+  // Remove PDF from client context
+  const removeClientPdf = () => {
+    if (clientPdf) {
+      setClientContext((prev) => prev.replace(`\n\n--- PDF Content ---\n${clientPdf.text}`, '').replace(clientPdf.text, ''))
+      setClientPdf(null)
+    }
+  }
+
+  // Remove PDF from user story
+  const removeStoryPdf = () => {
+    if (storyPdf) {
+      setUserStory((prev) => prev.replace(`\n\n--- PDF Content ---\n${storyPdf.text}`, '').replace(storyPdf.text, ''))
+      setStoryPdf(null)
+    }
+  }
 
   const handleAnalyze = async () => {
     if (!clientContext.trim() || !userStory.trim()) return
@@ -109,7 +192,46 @@ export default function PrioritizationDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="client-context">Client Context</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="client-context">Client Context</Label>
+                    <div className="flex items-center gap-2">
+                      {clientPdf && (
+                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          <span className="max-w-24 truncate text-foreground">{clientPdf.name}</span>
+                          <button
+                            type="button"
+                            onClick={removeClientPdf}
+                            className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleClientPdfUpload}
+                          className="hidden"
+                          disabled={isExtractingClient}
+                        />
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                          {isExtractingClient ? (
+                            <>
+                              <Spinner className="h-3 w-3" />
+                              Extracting...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3 w-3" />
+                              Upload PDF
+                            </>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                   <Textarea
                     id="client-context"
                     placeholder="Describe the client's industry, current workflows, pain points, and strategic goals..."
@@ -119,7 +241,46 @@ export default function PrioritizationDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="user-story">Jira User Story / PRD</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="user-story">Jira User Story / PRD</Label>
+                    <div className="flex items-center gap-2">
+                      {storyPdf && (
+                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          <span className="max-w-24 truncate text-foreground">{storyPdf.name}</span>
+                          <button
+                            type="button"
+                            onClick={removeStoryPdf}
+                            className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleStoryPdfUpload}
+                          className="hidden"
+                          disabled={isExtractingStory}
+                        />
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                          {isExtractingStory ? (
+                            <>
+                              <Spinner className="h-3 w-3" />
+                              Extracting...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3 w-3" />
+                              Upload PDF
+                            </>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                   <Textarea
                     id="user-story"
                     placeholder="Paste the user story or product requirements document..."
