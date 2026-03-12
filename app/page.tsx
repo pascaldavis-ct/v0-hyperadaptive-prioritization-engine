@@ -68,6 +68,29 @@ export default function PrioritizationDashboard() {
     return { label: 'Low Priority', color: 'bg-red-500' }
   }, [ifsScore])
 
+  // Expert tip for low scores
+  const expertTip = useMemo(() => {
+    if (ifsScore >= 40) return null // Only show for low priority
+
+    // High Impact but Low Scalability (Pilot Purgatory)
+    if (impact >= 4 && scalability <= 2) {
+      return {
+        type: 'warning',
+        message: 'Pilot Purgatory. Manual nature prevents scale.',
+      }
+    }
+
+    // High Feasibility but Low Impact (Ease vs Value)
+    if (feasibility >= 4 && impact <= 2) {
+      return {
+        type: 'pitfall',
+        message: "Don't confuse ease-of-build with business value.",
+      }
+    }
+
+    return null
+  }, [ifsScore, impact, feasibility, scalability])
+
   // Extract text from PDF
   const extractPdfText = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer()
@@ -505,12 +528,29 @@ export default function PrioritizationDashboard() {
                   >
                     {priority.label}
                   </Badge>
-                  <p className="mt-4 text-center text-xs text-muted-foreground">
-                    Score Range: 1-125 • High: 75-125 • Medium: 40-74 • Low:
-                    1-39
-                  </p>
-                </div>
-              </CardContent>
+<p className="mt-4 text-center text-xs text-muted-foreground">
+                      Score Range: 1-125 • High: 75-125 • Medium: 40-74 • Low:
+                      1-39
+                    </p>
+
+                    {/* Expert Tip for Low Scores */}
+                    {expertTip && (
+                      <div className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                        <div className="flex items-start gap-2">
+                          <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+                              Expert Tip: {expertTip.type === 'warning' ? 'Warning' : 'Pitfall'}
+                            </p>
+                            <p className="mt-1 text-sm font-medium text-foreground">
+                              {expertTip.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
             </Card>
 
             {/* Formula Display */}
