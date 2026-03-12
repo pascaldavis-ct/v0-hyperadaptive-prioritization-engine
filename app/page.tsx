@@ -23,10 +23,6 @@ import {
   Info,
   ChevronDown,
 } from 'lucide-react'
-import * as pdfjs from 'pdfjs-dist'
-
-// Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 interface AnalysisResult {
   bottleneckReasoning: string
@@ -91,8 +87,11 @@ export default function PrioritizationDashboard() {
     return null
   }, [ifsScore, impact, feasibility, scalability])
 
-  // Extract text from PDF
+  // Extract text from PDF (dynamically import pdfjs-dist to avoid SSR issues)
   const extractPdfText = async (file: File): Promise<string> => {
+    const pdfjs = await import('pdfjs-dist')
+    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+    
     const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
     let fullText = ''
