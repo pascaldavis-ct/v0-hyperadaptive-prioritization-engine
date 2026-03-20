@@ -2,45 +2,62 @@ import { generateText, Output } from 'ai'
 import { z } from 'zod'
 
 const analysisSchema = z.object({
-  bottleneckReasoning: z
+  // Overall strategic reasoning
+  strategicRationale: z
     .string()
     .describe(
-      'Detailed explanation of the primary bottleneck identified and how the proposed solution addresses it'
+      '2-3 sentence executive summary explaining the strategic value of this initiative and how it addresses the identified bottleneck within the client context'
     ),
+  
+  // Impact Score (1-10)
   impactScore: z
     .number()
     .min(1)
-    .max(5)
+    .max(10)
     .describe(
-      '1-5 score: 5 = Eliminates primary bottleneck, 1 = Minimal value'
+      'Impact score 1-10 based on IFS rubric: 1-3 = Localized task speed-up, 4-7 = Reduces handoffs/rework in secondary bottleneck, 8-10 = Resolves primary constraint (10x faster step = 10x faster process)'
     ),
   impactRationale: z
     .string()
-    .describe('Brief explanation for the impact score'),
+    .describe('1-2 sentence explanation for the impact score, referencing specific details from the initiative description'),
+  
+  // Feasibility Score (1-10)
   feasibilityScore: z
     .number()
     .min(1)
-    .max(5)
+    .max(10)
     .describe(
-      '1-5 score: 5 = All assets ready (2-4 weeks), 1 = Not feasible'
+      'Feasibility score 1-10 based on IFS rubric: 1-3 = Requires significant enablement (data cleanup/infrastructure), 4-7 = Minor gaps in assets, 8-10 = All assets ready with high organizational pull to adopt'
     ),
   feasibilityRationale: z
     .string()
-    .describe('Brief explanation for the feasibility score'),
+    .describe('1-2 sentence explanation for the feasibility score, referencing data readiness and organizational factors'),
+  
+  // Scalability Score (1-10)
   scalabilityScore: z
     .number()
     .min(1)
-    .max(5)
+    .max(10)
     .describe(
-      '1-5 score: 5 = Fully automated API (10k+ executions), 1 = Manual prompting'
+      'Scalability score 1-10 based on IFS rubric: 1-3 = Manual/one-off prompting, 4-7 = Hybrid with human-in-the-loop for >30% of outputs, 8-10 = Fully automated via API at machine speed'
     ),
   scalabilityRationale: z
     .string()
-    .describe('Brief explanation for the scalability score'),
+    .describe('1-2 sentence explanation for the scalability score, referencing automation potential and execution volume'),
+  
+  // Detected work type
+  detectedWorkType: z
+    .enum(['activation', 'enablement'])
+    .describe('Whether this is an Activation use case (direct business value) or Enablement use case (foundational infrastructure that unlocks other initiatives)'),
+  
+  // Primary bottleneck identified
+  primaryBottleneck: z
+    .string()
+    .describe('The main workflow constraint or bottleneck this initiative addresses'),
 })
 
 export async function POST(req: Request) {
-  const { clientContext, userStory } = await req.json()
+  const { clientContext, initiativeTitle, useCaseDescription, organizationalFocus } = await req.json()
 
   const { output } = await generateText({
     model: 'openai/gpt-5-mini',
@@ -50,42 +67,54 @@ export async function POST(req: Request) {
     messages: [
       {
         role: 'system',
-        content: `You are a Forward Deployed Engineer AI assistant that helps prioritize GenAI projects using the IFS (Impact, Feasibility, Scalability) framework.
+        content: `You are a Strategic Analyst AI that scores GenAI initiatives using the IFS (Impact, Feasibility, Scalability) framework.
 
-Analyze the provided client context and user story/PRD to assess:
+## IFS SCORING RUBRIC
 
-1. **Impact (I)**: How much value does this deliver?
-   - 5 = Eliminates primary bottleneck
-   - 4 = Significant improvement
-   - 3 = Moderate improvement
-   - 2 = Minor improvement
-   - 1 = Minimal value
+### IMPACT (Systemic Flow) - "Does this eliminate the primary Wait State blocking the end-to-end workflow?"
+Principle: Focus on Flow, not just Tasks
+- Score 1-3: Localized task speed-up; doesn't affect overall cycle time.
+- Score 4-7: Reduces handoffs/rework in a secondary bottleneck.
+- Score 8-10: Resolves a primary constraint; 10x faster step = 10x faster process.
 
-2. **Feasibility (F)**: Can this be built with available resources?
-   - 5 = All assets ready, can ship in 2-4 weeks
-   - 4 = Most assets available, minor gaps
-   - 3 = Some assets available, moderate effort needed
-   - 2 = Significant blockers exist
-   - 1 = Not feasible with current resources
+### FEASIBILITY (Foundational Readiness) - "Are the data, APIs, and Human Systems ready to support this today?"
+Principle: Readiness over Ambition
+- Score 1-3: Requires significant "Enablement" (data cleanup/infrastructure).
+- Score 4-7: Minor gaps; team is skilled but assets need refinement.
+- Score 8-10: All assets ready (SSOT verified); high "Organizational Pull" to adopt.
 
-3. **Scalability (S)**: How well can this scale?
-   - 5 = Fully automated API (10k+ executions/month)
-   - 4 = Highly automated with minor manual oversight
-   - 3 = Semi-automated, some manual intervention
-   - 2 = Mostly manual with automation potential
-   - 1 = Manual prompting only
+### SCALABILITY (Autonomous Velocity) - "Can this execute 10,000+ times without a new human bottleneck?"
+Principle: Machine Speed over Human Pace
+- Score 1-3: Manual/one-off prompting; high variable cost per execution.
+- Score 4-7: Hybrid; human-in-the-loop required for >30% of outputs.
+- Score 8-10: Fully automated via API; runs at machine speed with sustainable economics.
 
-Provide thoughtful, specific reasoning tied to the actual context provided.`,
+## WORK TYPE DETECTION
+- **Activation**: Direct business value delivery (e.g., automating a customer-facing process)
+- **Enablement**: Foundational infrastructure that unlocks multiple downstream Activation use cases (e.g., building a data API, creating a brand asset repository)
+
+## SCORING GUIDELINES
+1. Be specific - reference actual details from the provided context
+2. Consider the organizational focus when evaluating impact
+3. Look for explicit mentions of data readiness, existing systems, and timelines
+4. Identify automation potential based on the described workflow
+5. Provide concrete, actionable rationale that the stakeholder can use to justify the scores`,
       },
       {
         role: 'user',
-        content: `## Client Context
+        content: `## CLIENT CONTEXT
 ${clientContext}
 
-## User Story / PRD
-${userStory}
+## ORGANIZATIONAL FOCUS
+${organizationalFocus}
 
-Please analyze this GenAI project opportunity and provide your IFS assessment.`,
+## INITIATIVE TITLE
+${initiativeTitle}
+
+## INITIATIVE DESCRIPTION
+${useCaseDescription}
+
+Please analyze this GenAI initiative and provide your IFS assessment with scores from 1-10 and strategic rationale.`,
       },
     ],
   })

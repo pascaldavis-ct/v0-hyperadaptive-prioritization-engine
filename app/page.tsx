@@ -488,6 +488,21 @@ export default function HyperadaptivePrioritizationEngine() {
   const [jiraSyncStatus, setJiraSyncStatus] = useState<'pending' | 'syncing' | 'synced'>('pending')
   const [isSyncingToJira, setIsSyncingToJira] = useState(false)
   
+  // AI Inference State (Manual Mode)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [aiRationale, setAiRationale] = useState<{
+    strategic: string
+    impact: string
+    feasibility: string
+    scalability: string
+    primaryBottleneck: string
+  } | null>(null)
+  const [aiOriginalScores, setAiOriginalScores] = useState<{
+    impact: number
+    feasibility: number
+    scalability: number
+  } | null>(null)
+  
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1)
   
@@ -599,6 +614,8 @@ setFoundations([])
       setClientContext('')
       setContextTitle('')
       setInitiativeTitle('')
+      setAiRationale(null)
+      setAiOriginalScores(null)
       
       toast({
         title: 'Demo Mode Disabled',
@@ -952,6 +969,83 @@ setFoundations([])
     }
     handleScoreChange(field, newValue)
   }, [isHumanOverrideActive, handleScoreChange])
+
+  // Handle Manual Mode slider changes (tracks AI original scores for override detection)
+  const handleManualSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
+    // Update the score
+    if (field === 'impact') setImpact(newValue)
+    else if (field === 'feasibility') setFeasibility(newValue)
+    else setScalability(newValue)
+  }, [])
+
+  // Proceed to AI Synthesis (Manual Mode) - calls LLM for inference
+  const handleProceedToSynthesis = useCallback(async () => {
+    if (!clientContext || !useCaseDescription || !initiativeTitle) return
+    
+    setIsAnalyzing(true)
+    
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientContext,
+          initiativeTitle,
+          useCaseDescription,
+          organizationalFocus,
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Analysis failed')
+      }
+      
+      const result = await response.json()
+      
+      // Store AI rationale
+      setAiRationale({
+        strategic: result.strategicRationale,
+        impact: result.impactRationale,
+        feasibility: result.feasibilityRationale,
+        scalability: result.scalabilityRationale,
+        primaryBottleneck: result.primaryBottleneck,
+      })
+      
+      // Store original AI scores for override detection
+      setAiOriginalScores({
+        impact: result.impactScore,
+        feasibility: result.feasibilityScore,
+        scalability: result.scalabilityScore,
+      })
+      
+      // Set sliders to AI-recommended positions
+      setImpact(result.impactScore)
+      setFeasibility(result.feasibilityScore)
+      setScalability(result.scalabilityScore)
+      
+      // Set work type based on AI detection
+      setWorkType(result.detectedWorkType)
+      
+      // Move to Step 3
+      setCurrentStep(3)
+      
+      toast({
+        title: 'AI Analysis Complete',
+        description: 'IFS scores generated. Review and adjust as needed.',
+      })
+    } catch (error) {
+      console.error('Analysis error:', error)
+      toast({
+        title: 'Analysis Failed',
+        description: 'Could not complete AI analysis. Using default scores.',
+        variant: 'destructive',
+      })
+      // Fallback to Step 3 with default scores
+      setCurrentStep(3)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [clientContext, useCaseDescription, initiativeTitle, organizationalFocus, toast])
 
   // Confirm override
   const confirmOverride = () => {
@@ -1487,8 +1581,46 @@ setFoundations([])
     </div>
   </div>
   
-  <main className="mx-auto max-w-7xl px-6 py-8">
-        {/* Step 1: Context & Constraints */}
+<main className="mx-auto max-w-7xl px-6 py-8">
+  {/* AI Analysis Loading Overlay */}
+  {isAnalyzing && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+  <Card className="w-full max-w-md mx-4 border-2 border-blue-500/30 shadow-xl">
+  <CardContent className="p-8">
+  <div className="flex flex-col items-center text-center space-y-6">
+  <div className="relative">
+  <div className="absolute inset-0 rounded-full bg-blue-500/20 animate-ping" />
+  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+  <Brain className="h-8 w-8 text-white animate-pulse" />
+  </div>
+  </div>
+  <div className="space-y-2">
+  <h3 className="text-xl font-semibold text-foreground">Analyzing Initiative...</h3>
+  <p className="text-sm text-muted-foreground">
+  The Strategic Analyst AI is evaluating your initiative against the IFS framework.
+  </p>
+  </div>
+  <div className="w-full space-y-3">
+  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+  <span>Parsing client context and organizational focus</span>
+  </div>
+  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+  <Spinner className="h-4 w-4 text-blue-500" />
+  <span>Scoring Impact, Feasibility, Scalability</span>
+  </div>
+  <div className="flex items-center gap-3 text-sm text-muted-foreground opacity-50">
+  <div className="h-4 w-4 rounded-full border border-muted-foreground" />
+  <span>Generating strategic rationale</span>
+  </div>
+  </div>
+  </div>
+  </CardContent>
+  </Card>
+  </div>
+  )}
+
+  {/* Step 1: Context & Constraints */}
         {currentStep === 1 && (
           <div className="mx-auto max-w-2xl space-y-6">
             <Card className="border-2 border-primary/20">
@@ -2371,12 +2503,22 @@ setFoundations([])
                 )}
 
 <Button
-                  onClick={() => setCurrentStep(3)}
-                  className="w-full"
-                  disabled={!isContextSet || !initiativeTitle || !useCaseDescription}
+                  onClick={handleProceedToSynthesis}
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  disabled={!isContextSet || !initiativeTitle || !useCaseDescription || isAnalyzing}
                 >
-                  Proceed to AI Synthesis
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {isAnalyzing ? (
+                    <>
+                      <Spinner className="mr-2 h-5 w-5" />
+                      Analyzing Initiative...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="mr-2 h-5 w-5" />
+                      Proceed to AI Synthesis
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -2446,18 +2588,90 @@ setFoundations([])
                 </Card>
               )}
 
-              {/* AI Reasoning Summary */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Lightbulb className="h-4 w-4 text-amber-500" />
-                    AI Reasoning Rubric
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border border-border bg-muted/30 p-4">
-                    <p className="text-sm leading-relaxed text-foreground">{reasoning}</p>
-                  </div>
+{/* AI Scoring Rationale (Manual Mode) */}
+  {!isDemoMode && aiRationale && (
+  <Card className="border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-indigo-500/5">
+  <CardHeader className="pb-3">
+  <CardTitle className="flex items-center gap-2 text-base">
+  <Brain className="h-4 w-4 text-blue-600" />
+  AI Scoring Rationale
+  </CardTitle>
+  <p className="text-xs text-muted-foreground">Generated by Strategic Analyst AI</p>
+  </CardHeader>
+  <CardContent className="space-y-4">
+  {/* Strategic Summary */}
+  <div className="rounded-lg border border-blue-500/20 bg-background/80 p-4">
+  <p className="text-sm leading-relaxed text-foreground">{aiRationale.strategic}</p>
+  </div>
+  
+  {/* Primary Bottleneck */}
+  <div className="space-y-2">
+  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Primary Bottleneck Identified</Label>
+  <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 border border-orange-500/30 p-3">
+  <AlertTriangle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+  <p className="text-sm font-medium text-orange-700">{aiRationale.primaryBottleneck}</p>
+  </div>
+  </div>
+  
+  {/* Score-by-Score Rationale */}
+  <div className="space-y-3">
+  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Score Rationale</Label>
+  
+  <div className="rounded-lg border p-3 space-y-1">
+  <div className="flex items-center justify-between">
+  <span className="text-sm font-medium flex items-center gap-2">
+  <Zap className="h-3.5 w-3.5 text-primary" />
+  Impact
+  </span>
+  <Badge variant="outline" className={aiOriginalScores && aiOriginalScores.impact !== impact ? 'border-amber-500 text-amber-600' : 'border-blue-500 text-blue-600'}>
+  {aiOriginalScores && aiOriginalScores.impact !== impact ? 'User Adjusted' : 'AI Suggested'}: {aiOriginalScores?.impact || impact}
+  </Badge>
+  </div>
+  <p className="text-xs text-muted-foreground">{aiRationale.impact}</p>
+  </div>
+  
+  <div className="rounded-lg border p-3 space-y-1">
+  <div className="flex items-center justify-between">
+  <span className="text-sm font-medium flex items-center gap-2">
+  <Target className="h-3.5 w-3.5 text-primary" />
+  Feasibility
+  </span>
+  <Badge variant="outline" className={aiOriginalScores && aiOriginalScores.feasibility !== feasibility ? 'border-amber-500 text-amber-600' : 'border-blue-500 text-blue-600'}>
+  {aiOriginalScores && aiOriginalScores.feasibility !== feasibility ? 'User Adjusted' : 'AI Suggested'}: {aiOriginalScores?.feasibility || feasibility}
+  </Badge>
+  </div>
+  <p className="text-xs text-muted-foreground">{aiRationale.feasibility}</p>
+  </div>
+  
+  <div className="rounded-lg border p-3 space-y-1">
+  <div className="flex items-center justify-between">
+  <span className="text-sm font-medium flex items-center gap-2">
+  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+  Scalability
+  </span>
+  <Badge variant="outline" className={aiOriginalScores && aiOriginalScores.scalability !== scalability ? 'border-amber-500 text-amber-600' : 'border-blue-500 text-blue-600'}>
+  {aiOriginalScores && aiOriginalScores.scalability !== scalability ? 'User Adjusted' : 'AI Suggested'}: {aiOriginalScores?.scalability || scalability}
+  </Badge>
+  </div>
+  <p className="text-xs text-muted-foreground">{aiRationale.scalability}</p>
+  </div>
+  </div>
+  </CardContent>
+  </Card>
+  )}
+
+  {/* AI Reasoning Summary (Demo Mode or fallback) */}
+  <Card>
+  <CardHeader className="pb-3">
+  <CardTitle className="flex items-center gap-2 text-base">
+  <Lightbulb className="h-4 w-4 text-amber-500" />
+  {isDemoMode ? 'AI Reasoning Rubric' : 'Strategic Classification Logic'}
+  </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+  <div className="rounded-lg border border-border bg-muted/30 p-4">
+  <p className="text-sm leading-relaxed text-foreground">{reasoning}</p>
+  </div>
                   
                   {/* Contextual Tooltip Terms */}
                   <div className="flex flex-wrap gap-2">
@@ -2634,35 +2848,53 @@ setFoundations([])
                     </div>
                   )}
 
-                  <ScoreSlider
-                    icon={<Zap className="h-4 w-4" />}
-                    label="Impact"
-                    dimension="impact"
-                    value={impact}
-                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('impact', v) : handleScoreChange('impact', v)}
-                    bonus={enablementBonus + (hasStrategicBonus ? 1 : 0)}
-                    isOverridden={mcpOriginalScores && mcpOriginalScores.impact !== impact}
-                    disabled={!isHumanOverrideActive && isDemoMode}
-                  />
-                  <ScoreSlider
-                    icon={<Target className="h-4 w-4" />}
-                    label="Feasibility"
-                    dimension="feasibility"
-                    value={feasibility}
-                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('feasibility', v) : handleScoreChange('feasibility', v)}
-                    penalty={feasibilityPenalty}
-                    isOverridden={mcpOriginalScores && mcpOriginalScores.feasibility !== feasibility}
-                    disabled={!isHumanOverrideActive && isDemoMode}
-                  />
-                  <ScoreSlider
-                    icon={<TrendingUp className="h-4 w-4" />}
-                    label="Scalability"
-                    dimension="scalability"
-                    value={scalability}
-                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('scalability', v) : handleScoreChange('scalability', v)}
-                    isOverridden={mcpOriginalScores && mcpOriginalScores.scalability !== scalability}
-                    disabled={!isHumanOverrideActive && isDemoMode}
-                  />
+<ScoreSlider
+  icon={<Zap className="h-4 w-4" />}
+  label="Impact"
+  dimension="impact"
+  value={impact}
+  onChange={(v) => isDemoMode 
+    ? (isHumanOverrideActive ? handleHumanOverrideScoreChange('impact', v) : handleScoreChange('impact', v))
+    : handleManualSliderChange('impact', v)
+  }
+  bonus={enablementBonus + (hasStrategicBonus ? 1 : 0)}
+  isOverridden={isDemoMode 
+    ? (mcpOriginalScores && mcpOriginalScores.impact !== impact)
+    : (aiOriginalScores && aiOriginalScores.impact !== impact)
+  }
+  disabled={isDemoMode && !isHumanOverrideActive}
+  />
+<ScoreSlider
+  icon={<Target className="h-4 w-4" />}
+  label="Feasibility"
+  dimension="feasibility"
+  value={feasibility}
+  onChange={(v) => isDemoMode 
+    ? (isHumanOverrideActive ? handleHumanOverrideScoreChange('feasibility', v) : handleScoreChange('feasibility', v))
+    : handleManualSliderChange('feasibility', v)
+  }
+  penalty={feasibilityPenalty}
+  isOverridden={isDemoMode 
+    ? (mcpOriginalScores && mcpOriginalScores.feasibility !== feasibility)
+    : (aiOriginalScores && aiOriginalScores.feasibility !== feasibility)
+  }
+  disabled={isDemoMode && !isHumanOverrideActive}
+  />
+<ScoreSlider
+  icon={<TrendingUp className="h-4 w-4" />}
+  label="Scalability"
+  dimension="scalability"
+  value={scalability}
+  onChange={(v) => isDemoMode 
+    ? (isHumanOverrideActive ? handleHumanOverrideScoreChange('scalability', v) : handleScoreChange('scalability', v))
+    : handleManualSliderChange('scalability', v)
+  }
+  isOverridden={isDemoMode 
+    ? (mcpOriginalScores && mcpOriginalScores.scalability !== scalability)
+    : (aiOriginalScores && aiOriginalScores.scalability !== scalability)
+  }
+  disabled={isDemoMode && !isHumanOverrideActive}
+  />
                 </CardContent>
               </Card>
 
@@ -3073,8 +3305,8 @@ function ScoreSlider({
             </Badge>
           )}
           {isOverridden && (
-            <Badge variant="outline" className="border-amber-500/30 text-xs text-amber-600">
-              Overridden
+            <Badge className="bg-amber-500/20 text-amber-700 border border-amber-500/30 text-xs">
+              User Adjusted
             </Badge>
           )}
           {/* Principle Check Tooltip */}
@@ -3102,21 +3334,27 @@ function ScoreSlider({
             )}
           </div>
         </div>
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+        <span className={`flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold ${
+          isOverridden 
+            ? 'bg-amber-500 text-white' 
+            : 'bg-primary text-primary-foreground'
+        }`}>
           {displayValue}
         </span>
       </div>
       {/* Deep Question */}
       <p className="text-xs italic text-muted-foreground/80">{rubric.question}</p>
-      <Slider
-        value={[value]}
-        onValueChange={(v) => onChange(v[0])}
-        min={1}
-        max={10}
-        step={1}
-        className={`w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        disabled={disabled}
-      />
+      <div className={`relative ${isOverridden ? '[&_[data-slot=thumb]]:bg-amber-500 [&_[data-slot=thumb]]:border-amber-600' : ''}`}>
+        <Slider
+          value={[value]}
+          onValueChange={(v) => onChange(v[0])}
+          min={1}
+          max={10}
+          step={1}
+          className={`w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={disabled}
+        />
+      </div>
       {/* Dynamic Rubric Guidance */}
       <p className="text-xs text-muted-foreground">
         <span className="font-medium text-foreground">({currentRubric.range}):</span> {currentRubric.text}
