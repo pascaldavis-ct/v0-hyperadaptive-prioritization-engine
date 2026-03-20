@@ -8,225 +8,268 @@ import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Brain,
   Zap,
-  Wrench,
   TrendingUp,
   Sparkles,
   ArrowRight,
-  Upload,
-  FileText,
-  X,
-  Hammer,
   Layers,
   Info,
   ChevronDown,
+  Database,
+  FileEdit,
+  Search,
+  Gauge,
+  Target,
+  Rocket,
+  Lightbulb,
+  FlaskConical,
+  Trash2,
+  Volume2,
+  Link2,
+  CheckCircle2,
 } from 'lucide-react'
 
-interface AnalysisResult {
-  bottleneckReasoning: string
-  impactScore: number
-  impactRationale: string
-  feasibilityScore: number
-  feasibilityRationale: string
-  scalabilityScore: number
-  scalabilityRationale: string
+// Dummy MCP data for simulation
+const MOCK_MCP_DATA: Record<string, {
+  primaryBottleneck: string
+  dataReadiness: string
+  linkedDependencies: { key: string; type: 'enablement' | 'activation' }[]
+  description: string
+}> = {
+  'AI-101': {
+    primaryBottleneck: 'Manual translation coordination creating 3-week delays',
+    dataReadiness: 'Translation APIs available, content structure needs updates',
+    linkedDependencies: [
+      { key: 'AI-102', type: 'activation' },
+      { key: 'AI-103', type: 'activation' },
+      { key: 'AI-104', type: 'activation' },
+      { key: 'AI-105', type: 'activation' },
+    ],
+    description: 'Implement automated localization pipeline for global market deployment',
+  },
+  'AI-200': {
+    primaryBottleneck: 'Hero image creation requires 5 handoffs between teams',
+    dataReadiness: 'Design assets partially available, brand guidelines need documentation',
+    linkedDependencies: [
+      { key: 'AI-201', type: 'activation' },
+    ],
+    description: 'Optimize hero image generation workflow with AI-assisted design',
+  },
+  'AI-300': {
+    primaryBottleneck: 'Customer onboarding takes 14 days with 8 manual touchpoints',
+    dataReadiness: 'Customer data available in CRM, integration APIs ready',
+    linkedDependencies: [
+      { key: 'AI-301', type: 'enablement' },
+      { key: 'AI-302', type: 'activation' },
+    ],
+    description: 'Automate customer onboarding with personalized AI-driven workflows',
+  },
 }
 
-export default function PrioritizationDashboard() {
-  const [clientContext, setClientContext] = useState('')
-  const [userStory, setUserStory] = useState('')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+interface Archetype {
+  name: string
+  action: string
+  color: string
+  icon: React.ReactNode
+  description: string
+}
+
+function getArchetype(
+  totalScore: number,
+  impact: number,
+  scalability: number,
+  feasibility: number,
+  workType: 'enablement' | 'activation'
+): Archetype {
+  // Transformer: Score > 100 with high I, F, and S
+  if (totalScore > 100) {
+    return {
+      name: 'Transformer',
+      action: 'Immediate Delivery',
+      color: 'bg-emerald-500',
+      icon: <Rocket className="h-5 w-5" />,
+      description: 'High impact, feasibility, and scalability. Ship immediately.',
+    }
+  }
+
+  // The Foundation: High I/S, Low F, classified as Enablement
+  if (impact >= 7 && scalability >= 7 && feasibility <= 4 && workType === 'enablement') {
+    return {
+      name: 'The Foundation',
+      action: 'Fund Infrastructure',
+      color: 'bg-blue-500',
+      icon: <Layers className="h-5 w-5" />,
+      description: 'Critical enablement work. Invest in infrastructure first.',
+    }
+  }
+
+  // Quick Win: High F, Mid I
+  if (feasibility >= 7 && impact >= 4 && impact <= 7) {
+    return {
+      name: 'Quick Win',
+      action: 'Build Momentum',
+      color: 'bg-cyan-500',
+      icon: <Zap className="h-5 w-5" />,
+      description: 'High feasibility with moderate impact. Build momentum.',
+    }
+  }
+
+  // The Experiment: Score 40-74
+  if (totalScore >= 40 && totalScore <= 74) {
+    return {
+      name: 'The Experiment',
+      action: 'Time-box Prompting Party',
+      color: 'bg-amber-500',
+      icon: <FlaskConical className="h-5 w-5" />,
+      description: 'Moderate potential. Time-box exploration to validate.',
+    }
+  }
+
+  // Money Pit: Low S, High F
+  if (scalability <= 3 && feasibility >= 7) {
+    return {
+      name: 'Money Pit',
+      action: 'Defer - Manual/Non-Scalable',
+      color: 'bg-orange-500',
+      icon: <Trash2 className="h-5 w-5" />,
+      description: 'Easy to build but won\'t scale. Defer or redesign.',
+    }
+  }
+
+  // The Noise: Score < 20
+  if (totalScore < 20) {
+    return {
+      name: 'The Noise',
+      action: 'Discard',
+      color: 'bg-red-500',
+      icon: <Volume2 className="h-5 w-5" />,
+      description: 'Low value across all dimensions. Discard.',
+    }
+  }
+
+  // Default fallback for scores 20-39 or other edge cases
+  return {
+    name: 'Under Review',
+    action: 'Further Analysis Needed',
+    color: 'bg-slate-500',
+    icon: <Target className="h-5 w-5" />,
+    description: 'Requires additional discovery to classify.',
+  }
+}
+
+function generateReasoning(
+  impact: number,
+  feasibility: number,
+  scalability: number,
+  totalScore: number,
+  archetype: Archetype
+): string {
+  const handoffAnalysis = impact >= 7
+    ? 'Eliminates multiple handoff points in the current workflow.'
+    : impact >= 4
+    ? 'Reduces some handoffs but manual touchpoints remain.'
+    : 'Minimal impact on existing handoff structure.'
+
+  const waitTimeAnalysis = scalability >= 7
+    ? 'Automation potential eliminates wait times between process steps.'
+    : scalability >= 4
+    ? 'Partial automation reduces wait times but oversight required.'
+    : 'Wait times persist due to manual intervention requirements.'
+
+  return `${handoffAnalysis} ${waitTimeAnalysis} Classification: ${archetype.name} (Score: ${totalScore}).`
+}
+
+export default function HyperadaptivePrioritizationEngine() {
+  // Data Mode Toggle
+  const [dataMode, setDataMode] = useState<'manual' | 'mcp'>('manual')
+  const [jiraKey, setJiraKey] = useState('')
+  const [isFetchingMcp, setIsFetchingMcp] = useState(false)
+  const [mcpData, setMcpData] = useState<typeof MOCK_MCP_DATA['AI-101'] | null>(null)
+
+  // Input state
+  const [useCaseDescription, setUseCaseDescription] = useState('')
+  const [workType, setWorkType] = useState<'enablement' | 'activation'>('activation')
+  
+  // Bottleneck Test
+  const [makes10xFaster, setMakes10xFaster] = useState(false)
+
+  // IFS Scores (1-10 scale)
+  const [impact, setImpact] = useState(5)
+  const [feasibility, setFeasibility] = useState(5)
+  const [scalability, setScalability] = useState(5)
+
+  // Framework visibility
   const [isFrameworkOpen, setIsFrameworkOpen] = useState(true)
 
-  // PDF upload state
-  const [clientPdf, setClientPdf] = useState<{ name: string; text: string } | null>(null)
-  const [storyPdf, setStoryPdf] = useState<{ name: string; text: string } | null>(null)
-  const [isExtractingClient, setIsExtractingClient] = useState(false)
-  const [isExtractingStory, setIsExtractingStory] = useState(false)
+  // Enablement Multiplier Logic
+  const linkedActivationCount = useMemo(() => {
+    if (!mcpData) return 0
+    return mcpData.linkedDependencies.filter(dep => dep.type === 'activation').length
+  }, [mcpData])
 
-  // Human-adjusted scores (initialized from AI draft)
-  const [impact, setImpact] = useState(3)
-  const [feasibility, setFeasibility] = useState(3)
-  const [scalability, setScalability] = useState(3)
-
-  // Calculate IFS Score: (Impact × Scalability) × Feasibility
-  const ifsScore = useMemo(() => {
-    return impact * scalability * feasibility
-  }, [impact, scalability, feasibility])
-
-  // Determine priority level
-  const priority = useMemo(() => {
-    if (ifsScore >= 75) return { label: 'High Priority', color: 'bg-emerald-500' }
-    if (ifsScore >= 40) return { label: 'Medium Priority', color: 'bg-amber-500' }
-    return { label: 'Low Priority', color: 'bg-red-500' }
-  }, [ifsScore])
-
-  // Expert tip for low scores
-  const expertTip = useMemo(() => {
-    if (ifsScore >= 40) return null // Only show for low priority
-
-    // High Impact but Low Scalability (Pilot Purgatory)
-    if (impact >= 4 && scalability <= 2) {
-      return {
-        type: 'warning',
-        message: 'Pilot Purgatory. Manual nature prevents scale.',
-      }
+  const enablementBonus = useMemo(() => {
+    if (workType === 'enablement' && linkedActivationCount >= 3) {
+      return 2
     }
+    return 0
+  }, [workType, linkedActivationCount])
 
-    // High Feasibility but Low Impact (Ease vs Value)
-    if (feasibility >= 4 && impact <= 2) {
-      return {
-        type: 'pitfall',
-        message: "Don't confuse ease-of-build with business value.",
-      }
-    }
+  const adjustedImpact = useMemo(() => {
+    return Math.min(10, impact + enablementBonus)
+  }, [impact, enablementBonus])
 
-    return null
-  }, [ifsScore, impact, feasibility, scalability])
+  // Calculate Total Score: (Impact × Scalability) × Feasibility
+  const totalScore = useMemo(() => {
+    return adjustedImpact * scalability * feasibility
+  }, [adjustedImpact, scalability, feasibility])
 
-  // Extract text from PDF (dynamically import pdfjs-dist to avoid SSR issues)
-  const extractPdfText = async (file: File): Promise<string> => {
-    const pdfjs = await import('pdfjs-dist')
-    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+  // Certainty Score
+  const certaintyScore = useMemo(() => {
+    return dataMode === 'mcp' ? 9 : 3
+  }, [dataMode])
+
+  // Get archetype
+  const archetype = useMemo(() => {
+    return getArchetype(totalScore, adjustedImpact, scalability, feasibility, workType)
+  }, [totalScore, adjustedImpact, scalability, feasibility, workType])
+
+  // Generate reasoning
+  const reasoning = useMemo(() => {
+    return generateReasoning(adjustedImpact, feasibility, scalability, totalScore, archetype)
+  }, [adjustedImpact, feasibility, scalability, totalScore, archetype])
+
+  // Handle MCP fetch simulation
+  const handleMcpFetch = async () => {
+    if (!jiraKey.trim()) return
+
+    setIsFetchingMcp(true)
     
-    const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
-    let fullText = ''
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ')
-      fullText += pageText + '\n'
-    }
-
-    return fullText.trim()
-  }
-
-  // Handle PDF upload for client context
-  const handleClientPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || file.type !== 'application/pdf') return
-
-    setIsExtractingClient(true)
-    try {
-      const text = await extractPdfText(file)
-      setClientPdf({ name: file.name, text })
-      setClientContext((prev) => (prev ? `${prev}\n\n--- PDF Content ---\n${text}` : text))
-    } catch (error) {
-      console.error('Failed to extract PDF:', error)
-    } finally {
-      setIsExtractingClient(false)
-      e.target.value = ''
-    }
-  }
-
-  // Handle PDF upload for user story
-  const handleStoryPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || file.type !== 'application/pdf') return
-
-    setIsExtractingStory(true)
-    try {
-      const text = await extractPdfText(file)
-      setStoryPdf({ name: file.name, text })
-      setUserStory((prev) => (prev ? `${prev}\n\n--- PDF Content ---\n${text}` : text))
-    } catch (error) {
-      console.error('Failed to extract PDF:', error)
-    } finally {
-      setIsExtractingStory(false)
-      e.target.value = ''
-    }
-  }
-
-  // Remove PDF from client context
-  const removeClientPdf = () => {
-    if (clientPdf) {
-      setClientContext((prev) => prev.replace(`\n\n--- PDF Content ---\n${clientPdf.text}`, '').replace(clientPdf.text, ''))
-      setClientPdf(null)
-    }
-  }
-
-  // Remove PDF from user story
-  const removeStoryPdf = () => {
-    if (storyPdf) {
-      setUserStory((prev) => prev.replace(`\n\n--- PDF Content ---\n${storyPdf.text}`, '').replace(storyPdf.text, ''))
-      setStoryPdf(null)
-    }
-  }
-
-  const handleAnalyze = async () => {
-    if (!clientContext.trim() || !userStory.trim()) return
-
-    setIsAnalyzing(true)
-    
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-
-    const userStoryLower = userStory.toLowerCase()
-    
-    let result: AnalysisResult
-
-    if (userStoryLower.includes('localization')) {
-      result = {
-        bottleneckReasoning:
-          'Localization is a high-impact opportunity that addresses a primary bottleneck in reaching global markets. The workflow currently requires manual translation coordination, creating significant delays. Implementing an automated localization pipeline would dramatically accelerate time-to-market for international releases.',
-        impactScore: 5,
-        impactRationale:
-          'Eliminates the primary bottleneck of manual translation coordination, enabling 10x faster global deployment.',
-        feasibilityScore: 4,
-        feasibilityRationale:
-          'Translation APIs and i18n frameworks are mature. Requires content structure updates but achievable in 3-4 weeks.',
-        scalabilityScore: 5,
-        scalabilityRationale:
-          'Fully API-driven solution scales to unlimited languages with zero additional manual effort per execution.',
-      }
-      setImpact(5)
-      setFeasibility(4)
-      setScalability(5)
-    } else if (userStoryLower.includes('hero image')) {
-      result = {
-        bottleneckReasoning:
-          'Hero image optimization provides visual polish but does not address a core workflow bottleneck. While it improves user perception, the impact on operational efficiency is minimal. This is a task-level improvement rather than a transformational change.',
-        impactScore: 4,
-        impactRationale:
-          'Improves conversion metrics and brand perception, but does not eliminate a primary operational bottleneck.',
-        feasibilityScore: 5,
-        feasibilityRationale:
-          'Straightforward implementation with existing design assets. Can be completed within 1-2 weeks.',
-        scalabilityScore: 1,
-        scalabilityRationale:
-          'Manual design process required for each new hero image. No automation pathway available.',
-      }
-      setImpact(4)
-      setFeasibility(5)
-      setScalability(1)
+    const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
+    if (data) {
+      setMcpData(data)
+      setUseCaseDescription(data.description)
+      // Set work type based on linked dependencies
+      const hasEnablementLinks = data.linkedDependencies.some(d => d.type === 'enablement')
+      setWorkType(hasEnablementLinks ? 'enablement' : 'activation')
     } else {
-      result = {
-        bottleneckReasoning:
-          'This request requires further analysis to determine its strategic fit. Based on the provided context, the use case shows moderate potential across impact, feasibility, and scalability dimensions. Consider refining the requirements to better assess transformation potential.',
-        impactScore: 3,
-        impactRationale:
-          'Moderate impact on workflow efficiency. Further discovery needed to quantify bottleneck elimination.',
-        feasibilityScore: 3,
-        feasibilityRationale:
-          'Implementation complexity is moderate. Timeline depends on asset availability and technical requirements.',
-        scalabilityScore: 3,
-        scalabilityRationale:
-          'Partial automation possible. Some manual intervention may be required for edge cases.',
-      }
-      setImpact(3)
-      setFeasibility(3)
-      setScalability(3)
+      setMcpData(null)
     }
 
-    setAnalysis(result)
-    setIsAnalyzing(false)
+    setIsFetchingMcp(false)
+  }
+
+  const clearMcpData = () => {
+    setMcpData(null)
+    setJiraKey('')
+    setUseCaseDescription('')
   }
 
   return (
@@ -234,24 +277,49 @@ export default function PrioritizationDashboard() {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-6xl px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Brain className="h-5 w-5 text-primary-foreground" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                <Brain className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                  Hyperadaptive Prioritization Engine
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Version 2.0 - Strategic Archetype Classification
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
-                GenAI Prioritization Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                IFS Framework for Forward Deployed Engineers
-              </p>
+
+            {/* Data Mode Toggle */}
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <FileEdit className="h-4 w-4 text-muted-foreground" />
+                <span className={`text-sm ${dataMode === 'manual' ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                  Manual
+                </span>
+              </div>
+              <Switch
+                checked={dataMode === 'mcp'}
+                onCheckedChange={(checked) => {
+                  setDataMode(checked ? 'mcp' : 'manual')
+                  if (!checked) clearMcpData()
+                }}
+              />
+              <div className="flex items-center gap-2">
+                <span className={`text-sm ${dataMode === 'mcp' ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                  MCP Demo
+                </span>
+                <Database className="h-4 w-4 text-muted-foreground" />
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        {/* IFS Framework Reference - Glassmorphism Card */}
+        {/* IFS Framework Reference */}
         <div className="mb-8">
           <button
             onClick={() => setIsFrameworkOpen(!isFrameworkOpen)}
@@ -259,7 +327,7 @@ export default function PrioritizationDashboard() {
           >
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">The IFS Framework</span>
+              <span className="text-sm font-medium text-foreground">The IFS Framework (1-10 Scale)</span>
             </div>
             <ChevronDown
               className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
@@ -282,12 +350,12 @@ export default function PrioritizationDashboard() {
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15">
                           <Zap className="h-4 w-4 text-amber-500" />
                         </div>
-                        <span className="font-semibold text-foreground">Impact</span>
+                        <span className="font-semibold text-foreground">Impact (I)</span>
                       </div>
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         Breaks bottlenecks
                         <span className="mt-1 block text-xs text-muted-foreground/70">
-                          Score 5 = 10x workflow speed
+                          10 = Transforms entire workflow
                         </span>
                       </p>
                     </div>
@@ -295,14 +363,14 @@ export default function PrioritizationDashboard() {
                     <div className="group rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
                       <div className="mb-3 flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15">
-                          <Hammer className="h-4 w-4 text-emerald-500" />
+                          <Target className="h-4 w-4 text-emerald-500" />
                         </div>
-                        <span className="font-semibold text-foreground">Feasibility</span>
+                        <span className="font-semibold text-foreground">Feasibility (F)</span>
                       </div>
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         Ready to build
                         <span className="mt-1 block text-xs text-muted-foreground/70">
-                          Score 5 = 2-4 week delivery
+                          10 = Ship in 1-2 weeks
                         </span>
                       </p>
                     </div>
@@ -312,12 +380,12 @@ export default function PrioritizationDashboard() {
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15">
                           <Layers className="h-4 w-4 text-blue-500" />
                         </div>
-                        <span className="font-semibold text-foreground">Scalability</span>
+                        <span className="font-semibold text-foreground">Scalability (S)</span>
                       </div>
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         API-ready automation
                         <span className="mt-1 block text-xs text-muted-foreground/70">
-                          Score 5 = Zero-touch scale
+                          10 = Unlimited zero-touch scale
                         </span>
                       </p>
                     </div>
@@ -325,7 +393,8 @@ export default function PrioritizationDashboard() {
 
                   <div className="mt-6 rounded-lg bg-primary/5 px-5 py-4">
                     <p className="text-balance text-center text-base font-medium leading-relaxed text-foreground">
-                      IFS ensures we prioritize transformation over individual task-speed improvements.
+                      Formula: <code className="rounded bg-muted px-2 py-0.5 font-mono text-sm">(I x S) x F = Total Score</code>
+                      <span className="ml-2 text-sm text-muted-foreground">Max: 1000</span>
                     </p>
                   </div>
                 </CardContent>
@@ -337,219 +406,209 @@ export default function PrioritizationDashboard() {
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Left Column - Input */}
           <div className="space-y-6">
-            {/* Input Section */}
+            {/* MCP Mode Input */}
+            {dataMode === 'mcp' && (
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Database className="h-4 w-4 text-muted-foreground" />
+                    Atlassian MCP Search
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Enter Jira Key (e.g., AI-101, AI-200, AI-300)"
+                        value={jiraKey}
+                        onChange={(e) => setJiraKey(e.target.value)}
+                        className="pl-9"
+                        onKeyDown={(e) => e.key === 'Enter' && handleMcpFetch()}
+                      />
+                    </div>
+                    <Button onClick={handleMcpFetch} disabled={isFetchingMcp || !jiraKey.trim()}>
+                      {isFetchingMcp ? <Spinner className="h-4 w-4" /> : 'Fetch'}
+                    </Button>
+                  </div>
+
+                  {mcpData && (
+                    <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="font-mono">
+                          {jiraKey.toUpperCase()}
+                        </Badge>
+                        <Button variant="ghost" size="sm" onClick={clearMcpData}>
+                          Clear
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Primary Bottleneck</Label>
+                          <p className="text-sm text-foreground">{mcpData.primaryBottleneck}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Data Readiness</Label>
+                          <p className="text-sm text-foreground">{mcpData.dataReadiness}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Linked Dependencies</Label>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {mcpData.linkedDependencies.map((dep) => (
+                              <Badge
+                                key={dep.key}
+                                variant={dep.type === 'enablement' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                <Link2 className="mr-1 h-3 w-3" />
+                                {dep.key}
+                                <span className="ml-1 opacity-70">({dep.type})</span>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Demo keys: AI-101 (Localization), AI-200 (Hero Images), AI-300 (Onboarding)
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Use Case Description */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  Project Context
+                  Use Case Description
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="client-context">Client Context</Label>
-                    <div className="flex items-center gap-2">
-                      {clientPdf && (
-                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs">
-                          <FileText className="h-3 w-3 text-muted-foreground" />
-                          <span className="max-w-24 truncate text-foreground">{clientPdf.name}</span>
-                          <button
-                            type="button"
-                            onClick={removeClientPdf}
-                            className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={handleClientPdfUpload}
-                          className="hidden"
-                          disabled={isExtractingClient}
-                        />
-                        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                          {isExtractingClient ? (
-                            <>
-                              <Spinner className="h-3 w-3" />
-                              Extracting...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-3 w-3" />
-                              Upload PDF
-                            </>
-                          )}
-                        </span>
-                      </label>
+                <Textarea
+                  placeholder="Describe the use case, including the current workflow pain points, desired outcome, and any technical requirements..."
+                  value={useCaseDescription}
+                  onChange={(e) => setUseCaseDescription(e.target.value)}
+                  className="min-h-32 resize-none"
+                />
+
+                {/* Work Type Selection */}
+                <div className="flex items-center gap-4">
+                  <Label className="text-sm">Work Type:</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={workType === 'activation' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setWorkType('activation')}
+                    >
+                      <Zap className="mr-1.5 h-3.5 w-3.5" />
+                      Activation
+                    </Button>
+                    <Button
+                      variant={workType === 'enablement' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setWorkType('enablement')}
+                    >
+                      <Layers className="mr-1.5 h-3.5 w-3.5" />
+                      Enablement
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Bottleneck Test Checklist */}
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="bottleneck-test"
+                      checked={makes10xFaster}
+                      onCheckedChange={(checked) => setMakes10xFaster(checked as boolean)}
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="bottleneck-test" className="cursor-pointer font-medium">
+                        The Bottleneck Test
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Does this make the entire process 10x faster?
+                      </p>
                     </div>
                   </div>
-                  <Textarea
-                    id="client-context"
-                    placeholder="Describe the client's industry, current workflows, pain points, and strategic goals..."
-                    value={clientContext}
-                    onChange={(e) => setClientContext(e.target.value)}
-                    className="min-h-32 resize-none"
-                  />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="user-story">Jira User Story / PRD</Label>
-                    <div className="flex items-center gap-2">
-                      {storyPdf && (
-                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs">
-                          <FileText className="h-3 w-3 text-muted-foreground" />
-                          <span className="max-w-24 truncate text-foreground">{storyPdf.name}</span>
-                          <button
-                            type="button"
-                            onClick={removeStoryPdf}
-                            className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={handleStoryPdfUpload}
-                          className="hidden"
-                          disabled={isExtractingStory}
-                        />
-                        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                          {isExtractingStory ? (
-                            <>
-                              <Spinner className="h-3 w-3" />
-                              Extracting...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-3 w-3" />
-                              Upload PDF
-                            </>
-                          )}
-                        </span>
-                      </label>
-                    </div>
+
+                {/* Enablement Bonus Indicator */}
+                {workType === 'enablement' && linkedActivationCount >= 3 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-600">
+                      Enablement Multiplier Active: +2 Impact bonus (linked to {linkedActivationCount} activation tickets)
+                    </span>
                   </div>
-                  <Textarea
-                    id="user-story"
-                    placeholder="Paste the user story or product requirements document..."
-                    value={userStory}
-                    onChange={(e) => setUserStory(e.target.value)}
-                    className="min-h-32 resize-none"
-                  />
-                </div>
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={
-                    isAnalyzing || !clientContext.trim() || !userStory.trim()
-                  }
-                  className="w-full"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Spinner className="mr-2" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      Run Analysis
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
+                )}
               </CardContent>
             </Card>
 
-            {/* AI Assessment Card */}
-            {analysis && (
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Brain className="h-4 w-4 text-muted-foreground" />
-                    AI Draft Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Bottleneck Reasoning</Label>
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">
-                      {analysis.bottleneckReasoning}
-                    </div>
-                  </div>
-                  <div className="grid gap-3">
-                    <RationaleItem
-                      icon={<Zap className="h-3.5 w-3.5" />}
-                      label="Impact"
-                      score={analysis.impactScore}
-                      rationale={analysis.impactRationale}
-                    />
-                    <RationaleItem
-                      icon={<Wrench className="h-3.5 w-3.5" />}
-                      label="Feasibility"
-                      score={analysis.feasibilityScore}
-                      rationale={analysis.feasibilityRationale}
-                    />
-                    <RationaleItem
-                      icon={<TrendingUp className="h-3.5 w-3.5" />}
-                      label="Scalability"
-                      score={analysis.scalabilityScore}
-                      rationale={analysis.scalabilityRationale}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* IFS Score Sliders */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                    H
+                  </span>
+                  Human-in-the-Loop Scoring (1-10)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ScoreSlider
+                  icon={<Zap className="h-4 w-4" />}
+                  label="Impact"
+                  description="10 = Eliminates primary bottleneck completely"
+                  value={impact}
+                  onChange={setImpact}
+                  bonus={enablementBonus}
+                />
+                <ScoreSlider
+                  icon={<Target className="h-4 w-4" />}
+                  label="Feasibility"
+                  description="10 = All assets ready, ship in 1-2 weeks"
+                  value={feasibility}
+                  onChange={setFeasibility}
+                />
+                <ScoreSlider
+                  icon={<TrendingUp className="h-4 w-4" />}
+                  label="Scalability"
+                  description="10 = Fully automated API, unlimited scale"
+                  value={scalability}
+                  onChange={setScalability}
+                />
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Right Column - Scoring */}
+          {/* Right Column - Results */}
           <div className="space-y-6">
-            {/* Real-time Score Display */}
+            {/* Total Score Display */}
             <Card className="overflow-hidden">
-              <div
-                className={`h-1.5 transition-colors duration-300 ${priority.color}`}
-              />
+              <div className={`h-1.5 transition-colors duration-300 ${archetype.color}`} />
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center justify-center py-4">
                   <p className="mb-2 text-sm font-medium text-muted-foreground">
-                    Final IFS Score
+                    Total Score
                   </p>
                   <div className="mb-4 text-7xl font-bold tabular-nums tracking-tight text-foreground">
-                    {ifsScore}
+                    {totalScore}
                   </div>
                   <Badge
-                    className={`px-4 py-1.5 text-sm font-medium text-white ${priority.color}`}
+                    className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}
                   >
-                    {priority.label}
+                    {archetype.name}
                   </Badge>
-<p className="mt-4 text-center text-xs text-muted-foreground">
-                      Score Range: 1-125 • High: 75-125 • Medium: 40-74 • Low:
-                      1-39
-                    </p>
-
-                    {/* Expert Tip for Low Scores */}
-                    {expertTip && (
-                      <div className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                        <div className="flex items-start gap-2">
-                          <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
-                              Expert Tip: {expertTip.type === 'warning' ? 'Warning' : 'Pitfall'}
-                            </p>
-                            <p className="mt-1 text-sm font-medium text-foreground">
-                              {expertTip.message}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
+                  <p className="mt-4 text-center text-xs text-muted-foreground">
+                    Score Range: 1-1000 | Transformer: {'>'} 100
+                  </p>
+                </div>
+              </CardContent>
             </Card>
 
             {/* Formula Display */}
@@ -558,45 +617,127 @@ export default function PrioritizationDashboard() {
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <span className="text-muted-foreground">Formula:</span>
                   <code className="rounded bg-muted px-2 py-1 font-mono text-foreground">
-                    (I × S) × F = ({impact} × {scalability}) × {feasibility} ={' '}
-                    {ifsScore}
+                    (I x S) x F = ({adjustedImpact} x {scalability}) x {feasibility} = {totalScore}
                   </code>
+                </div>
+                {enablementBonus > 0 && (
+                  <p className="mt-2 text-center text-xs text-emerald-600">
+                    Impact includes +{enablementBonus} enablement bonus
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Archetype Card */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Lightbulb className="h-4 w-4 text-muted-foreground" />
+                  Strategic Classification
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={`flex items-center gap-4 rounded-lg border p-4 ${archetype.color}/10 border-${archetype.color}/30`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${archetype.color} text-white`}>
+                    {archetype.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">{archetype.name}</h3>
+                    <p className="text-sm text-muted-foreground">{archetype.description}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowRight className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-foreground">Recommended Action</span>
+                  </div>
+                  <Badge variant="outline" className="text-base px-3 py-1">
+                    {archetype.action}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Human-in-the-Loop Sliders */}
+            {/* Certainty Gauge & Reasoning */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                    H
-                  </span>
-                  Human-in-the-Loop Adjustment
+                  <Gauge className="h-4 w-4 text-muted-foreground" />
+                  Context Metadata
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <ScoreSlider
-                  icon={<Zap className="h-4 w-4" />}
-                  label="Impact"
-                  description="5 = Eliminates bottleneck • 1 = Minimal value"
-                  value={impact}
-                  onChange={setImpact}
-                />
-                <ScoreSlider
-                  icon={<Wrench className="h-4 w-4" />}
-                  label="Feasibility"
-                  description="5 = All assets ready (2-4 wks) • 1 = Not feasible"
-                  value={feasibility}
-                  onChange={setFeasibility}
-                />
-                <ScoreSlider
-                  icon={<TrendingUp className="h-4 w-4" />}
-                  label="Scalability"
-                  description="5 = Fully automated API • 1 = Manual prompting"
-                  value={scalability}
-                  onChange={setScalability}
-                />
+              <CardContent className="space-y-4">
+                {/* Certainty Score */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">Certainty Score</Label>
+                    <Badge variant={certaintyScore >= 7 ? 'default' : 'secondary'}>
+                      {certaintyScore}/10
+                    </Badge>
+                  </div>
+                  <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`transition-all duration-500 ${
+                        certaintyScore >= 7 ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                      style={{ width: `${certaintyScore * 10}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {dataMode === 'mcp'
+                      ? 'High certainty - Data sourced from Atlassian MCP'
+                      : 'Low certainty - Manual entry mode. Consider MCP for validation.'}
+                  </p>
+                </div>
+
+                {/* AI Reasoning Rubric */}
+                <div className="space-y-2">
+                  <Label className="text-sm">AI Reasoning Rubric</Label>
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <p className="text-sm leading-relaxed text-foreground">
+                      {reasoning}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bottleneck Test Result */}
+                {makes10xFaster && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-600">
+                      Passes 10x Bottleneck Test
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Archetype Legend */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  Archetype Legend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2">
+                  {[
+                    { name: 'Transformer', score: '> 100', color: 'bg-emerald-500' },
+                    { name: 'The Foundation', score: 'High I/S, Low F + Enablement', color: 'bg-blue-500' },
+                    { name: 'Quick Win', score: 'High F, Mid I', color: 'bg-cyan-500' },
+                    { name: 'The Experiment', score: '40-74', color: 'bg-amber-500' },
+                    { name: 'Money Pit', score: 'Low S, High F', color: 'bg-orange-500' },
+                    { name: 'The Noise', score: '< 20', color: 'bg-red-500' },
+                  ].map((item) => (
+                    <div key={item.name} className="flex items-center gap-3 text-sm">
+                      <div className={`h-3 w-3 rounded-full ${item.color}`} />
+                      <span className="font-medium text-foreground">{item.name}</span>
+                      <span className="text-muted-foreground">({item.score})</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -612,34 +753,43 @@ function ScoreSlider({
   description,
   value,
   onChange,
+  bonus = 0,
 }: {
   icon: React.ReactNode
   label: string
   description: string
   value: number
   onChange: (value: number) => void
+  bonus?: number
 }) {
+  const displayValue = Math.min(10, value + bonus)
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">{icon}</span>
           <span className="font-medium text-foreground">{label}</span>
+          {bonus > 0 && (
+            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-500/30">
+              +{bonus}
+            </Badge>
+          )}
         </div>
         <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-          {value}
+          {displayValue}
         </span>
       </div>
       <Slider
         value={[value]}
         onValueChange={(v) => onChange(v[0])}
         min={1}
-        max={5}
+        max={10}
         step={1}
         className="w-full"
       />
       <div className="flex justify-between">
-        {[1, 2, 3, 4, 5].map((n) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
           <span
             key={n}
             className={`text-xs ${
@@ -651,37 +801,6 @@ function ScoreSlider({
         ))}
       </div>
       <p className="text-xs text-muted-foreground">{description}</p>
-    </div>
-  )
-}
-
-function RationaleItem({
-  icon,
-  label,
-  score,
-  rationale,
-}: {
-  icon: React.ReactNode
-  label: string
-  score: number
-  rationale: string
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        {icon}
-      </div>
-      <div className="flex-1 space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-foreground">{label}</span>
-          <Badge variant="secondary" className="tabular-nums">
-            {score}/5
-          </Badge>
-        </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {rationale}
-        </p>
-      </div>
     </div>
   )
 }

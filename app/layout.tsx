@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'GenAI Prioritization Dashboard | IFS Framework',
-  description: 'AI-powered prioritization tool for Forward Deployed Engineers using the IFS (Impact, Feasibility, Scalability) framework',
+  title: 'Hyperadaptive Prioritization Engine V2 | Strategic Archetype Classification',
+  description: 'Version 2 of the AI-powered prioritization engine with MCP integration, 6 strategic archetypes, and hyperadaptive scoring logic',
   generator: 'v0.app',
   icons: {
     icon: [
