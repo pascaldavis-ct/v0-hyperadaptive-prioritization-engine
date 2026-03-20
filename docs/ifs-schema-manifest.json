@@ -1,0 +1,397 @@
+{
+  "$schema": "IFS Prioritization Engine - Schema Manifest",
+  "version": "1.0.0",
+  "description": "Structured manifest of all input fields, scoring variables, and classification logic for the IFS (Impact-Feasibility-Scalability) AI Prioritization Framework",
+
+  "inputFields": {
+    "step1_setContext": {
+      "description": "Organizational context fields that frame all prioritization decisions",
+      "fields": {
+        "contextTitle": {
+          "type": "string",
+          "required": false,
+          "label": "Context Title",
+          "placeholder": "e.g., Q4 Digital Transformation Initiative",
+          "description": "A short, descriptive name for this prioritization context"
+        },
+        "clientContext": {
+          "type": "string",
+          "required": true,
+          "label": "Client Context",
+          "inputType": "textarea",
+          "placeholder": "Describe the client organization: industry, size, current systems, strategic goals...",
+          "description": "Holistic description of the organization's industry, size, current state, and strategic objectives"
+        },
+        "organizationalFocus": {
+          "type": "enum",
+          "required": true,
+          "label": "Strategic Focus",
+          "options": ["OPEX Reduction", "Customer Experience", "Developer Productivity", "Process Efficiency", "Infrastructure"],
+          "description": "Primary strategic objective guiding prioritization"
+        },
+        "resourceCapacity": {
+          "type": "enum",
+          "required": true,
+          "label": "Resource Capacity",
+          "options": ["high", "medium", "low"],
+          "default": "medium",
+          "description": "Available resources for AI initiative delivery"
+        },
+        "spaceKey": {
+          "type": "string",
+          "required": false,
+          "label": "Jira Space Key",
+          "placeholder": "e.g., MKTG-SUPPLY-CHAIN",
+          "description": "Jira project key for MCP integration (auto-populates workspace context)"
+        }
+      }
+    },
+
+    "step2_defineInitiative": {
+      "description": "Initiative-specific fields for the AI use case being evaluated",
+      "fields": {
+        "jiraKey": {
+          "type": "string",
+          "required": false,
+          "label": "Jira Issue Key",
+          "placeholder": "e.g., AI-101",
+          "description": "Jira issue key for MCP data retrieval"
+        },
+        "initiativeTitle": {
+          "type": "string",
+          "required": true,
+          "label": "Initiative Title",
+          "placeholder": "e.g., Regional Variant Engine",
+          "description": "Concise name for the AI initiative"
+        },
+        "useCaseDescription": {
+          "type": "string",
+          "required": true,
+          "label": "AI Initiative Description",
+          "inputType": "textarea",
+          "placeholder": "Describe the AI-powered capability, what it automates, and the expected outcome...",
+          "description": "Detailed description of the AI use case and its intended outcomes"
+        },
+        "prioritizationContext": {
+          "type": "string",
+          "required": false,
+          "label": "Prioritization Context",
+          "inputType": "textarea",
+          "placeholder": "Additional context for prioritization...",
+          "description": "Supplementary context specific to this initiative's prioritization"
+        },
+        "workType": {
+          "type": "enum",
+          "required": true,
+          "label": "Work Type",
+          "options": ["activation", "enablement"],
+          "default": "activation",
+          "description": "Classification of initiative type - Activation (direct value) or Enablement (foundational infrastructure)"
+        },
+        "makes10xFaster": {
+          "type": "boolean",
+          "required": false,
+          "label": "10x Bottleneck Test",
+          "default": false,
+          "description": "Whether this initiative eliminates a bottleneck by 10x or more"
+        }
+      }
+    },
+
+    "step3_scoring": {
+      "description": "IFS scoring sliders (1-10 scale)",
+      "fields": {
+        "impact": {
+          "type": "number",
+          "required": true,
+          "label": "Impact",
+          "min": 1,
+          "max": 10,
+          "default": 5,
+          "description": "Business value and strategic importance of the initiative",
+          "rubric": {
+            "1-3": "No visible impact on strategic goals or customer experience",
+            "4-6": "Partial improvement; incremental value but not transformative",
+            "7-10": "Direct value creation; eliminates a top-3 constraint or 10x improvement"
+          }
+        },
+        "feasibility": {
+          "type": "number",
+          "required": true,
+          "label": "Feasibility",
+          "min": 1,
+          "max": 10,
+          "default": 5,
+          "description": "Technical and organizational ability to deliver",
+          "rubric": {
+            "1-3": "Multiple blockers (data, infrastructure, skills, compliance)",
+            "4-6": "Solvable constraints with reasonable effort",
+            "7-10": "Clear path; dependencies resolved or minimal"
+          }
+        },
+        "scalability": {
+          "type": "number",
+          "required": true,
+          "label": "Scalability",
+          "min": 1,
+          "max": 10,
+          "default": 5,
+          "description": "Ability to scale autonomously without human bottlenecks",
+          "rubric": {
+            "1-3": "High human-in-loop requirements; cannot scale",
+            "4-6": "Semi-autonomous; limited scaling potential",
+            "7-10": "Fully autonomous; infinite scaling potential"
+          }
+        }
+      }
+    },
+
+    "mcpDataFields": {
+      "description": "Fields populated via MCP (Atlassian Jira) integration",
+      "fields": {
+        "primaryBottleneck": {
+          "type": "string",
+          "source": "jira",
+          "description": "The primary workflow bottleneck this initiative addresses"
+        },
+        "dataReadiness": {
+          "type": "enum",
+          "source": "jira",
+          "options": ["Data available and integrated", "Data exists but siloed across systems", "Partial data available, needs integration"],
+          "description": "Current state of data availability for the initiative"
+        },
+        "linkedDependencies": {
+          "type": "array",
+          "source": "jira",
+          "itemType": { "key": "string", "type": "enum:enablement|activation" },
+          "description": "Other initiatives this depends on or unlocks"
+        },
+        "activeTime": {
+          "type": "number",
+          "source": "jira",
+          "unit": "hours",
+          "description": "Hours of active work in the workflow"
+        },
+        "waitTime": {
+          "type": "number",
+          "source": "jira",
+          "unit": "hours",
+          "description": "Hours of wait/idle time in the workflow (systemic roadblock)"
+        },
+        "suggestedScores": {
+          "type": "object",
+          "source": "jira",
+          "properties": {
+            "impact": "number",
+            "feasibility": "number",
+            "scalability": "number"
+          },
+          "description": "AI-suggested IFS scores based on Jira data analysis"
+        }
+      }
+    }
+  },
+
+  "scoringEngine": {
+    "description": "Variables and formulas used in the IFS scoring calculation",
+    
+    "derivedVariables": {
+      "enablementBonus": {
+        "formula": "workType === 'enablement' && linkedActivationCount >= 2 ? 2 : 0",
+        "description": "Impact bonus for Enablement initiatives that unlock 2+ Activation use cases",
+        "maxValue": 2
+      },
+      "hasStrategicBonus": {
+        "formula": "useCaseDescription includes keywords matching organizationalFocus",
+        "description": "Additional +1 Impact bonus if initiative aligns with strategic focus",
+        "maxValue": 1
+      },
+      "feasibilityPenalty": {
+        "formula": "blockerAlert ? 2 : 0",
+        "description": "Feasibility penalty when a required enabler is Stalled or Missing",
+        "maxValue": 2
+      },
+      "adjustedImpact": {
+        "formula": "Math.min(10, impact + enablementBonus + (hasStrategicBonus ? 1 : 0))",
+        "description": "Impact score after applying bonuses, capped at 10"
+      },
+      "adjustedFeasibility": {
+        "formula": "Math.max(1, feasibility - feasibilityPenalty)",
+        "description": "Feasibility score after applying blocker penalty, minimum 1"
+      },
+      "totalScore": {
+        "formula": "adjustedImpact * scalability * adjustedFeasibility",
+        "description": "Final IFS composite score (multiplicative)",
+        "range": { "min": 1, "max": 1000 }
+      },
+      "frictionRatio": {
+        "formula": "waitTime / (activeTime + waitTime)",
+        "description": "Percentage of cycle time spent in wait states (systemic roadblock)"
+      },
+      "contextAffinity": {
+        "formula": "keyword matching score 0-100",
+        "description": "How well the initiative description aligns with organizational context"
+      },
+      "certaintyScore": {
+        "formula": "average of mcpCoverage, contextAffinity, overrideConfidence",
+        "description": "Confidence level in the archetype classification"
+      }
+    },
+
+    "blockerDetection": {
+      "description": "Logic for detecting infrastructure blockers that affect Feasibility",
+      "conditions": [
+        {
+          "trigger": "mcpData.requiredEnablers exists",
+          "check": "enabler.status in workspaceContext.enablers",
+          "penalty": "Stalled = -2 Feasibility, Missing = -2 Feasibility"
+        }
+      ]
+    }
+  },
+
+  "archetypeClassification": {
+    "description": "Strategic archetype classification based on IFS scores",
+    "archetypes": [
+      {
+        "name": "Transformer",
+        "condition": "totalScore > 100",
+        "action": "Immediate Delivery",
+        "color": "bg-blue-500",
+        "description": "High impact, feasibility, and scalability. Ship immediately."
+      },
+      {
+        "name": "The Foundation",
+        "condition": "impact >= 7 && scalability >= 7 && feasibility <= 4 && workType === 'enablement'",
+        "action": "Fund Infrastructure (Enablement)",
+        "color": "bg-purple-500",
+        "description": "Critical enablement work. Invest in infrastructure first."
+      },
+      {
+        "name": "Quick Win",
+        "condition": "feasibility >= 7 && impact >= 4 && impact <= 7",
+        "action": "Build Momentum",
+        "color": "bg-green-500",
+        "description": "High feasibility with moderate impact. Build momentum."
+      },
+      {
+        "name": "The Experiment",
+        "condition": "totalScore >= 40 && totalScore <= 74",
+        "action": "Time-box Prompting Party",
+        "color": "bg-yellow-500",
+        "description": "Moderate potential. Time-box exploration to validate."
+      },
+      {
+        "name": "Money Pit",
+        "condition": "scalability <= 3 && feasibility >= 7",
+        "action": "Defer - Manual/Non-Scalable",
+        "color": "bg-orange-500",
+        "description": "Easy to build but won't scale. Defer or redesign."
+      },
+      {
+        "name": "The Noise",
+        "condition": "totalScore < 20",
+        "action": "Discard",
+        "color": "bg-gray-500",
+        "description": "Low value across all dimensions. Discard."
+      },
+      {
+        "name": "Under Review",
+        "condition": "default (no other match)",
+        "action": "Further Analysis Needed",
+        "color": "bg-slate-500",
+        "description": "Requires additional discovery to classify."
+      }
+    ],
+    "evaluationOrder": [
+      "Transformer (totalScore > 100)",
+      "The Foundation (enablement with high I/S, low F)",
+      "Quick Win (high F, moderate I)",
+      "The Experiment (40-74 range)",
+      "Money Pit (low S, high F)",
+      "The Noise (< 20)",
+      "Under Review (fallback)"
+    ]
+  },
+
+  "demoInitiatives": {
+    "description": "Pre-configured demo scenarios for presentation mode",
+    "initiatives": {
+      "AI-101": {
+        "title": "Regional Variant Engine",
+        "priorityTag": "High Priority",
+        "type": "Activation",
+        "expectedArchetype": "Transformer",
+        "suggestedScores": { "impact": 9, "feasibility": 8, "scalability": 9 },
+        "friction": { "activeTime": 4, "waitTime": 92 }
+      },
+      "DATA-05": {
+        "title": "Brand-Kit API",
+        "priorityTag": "Required Foundation",
+        "type": "Enablement",
+        "expectedArchetype": "The Foundation",
+        "suggestedScores": { "impact": 9, "feasibility": 4, "scalability": 8 },
+        "friction": { "activeTime": 20, "waitTime": 10 },
+        "unlocks": ["AI-101", "AI-102", "AI-103", "AI-104"]
+      },
+      "AI-202": {
+        "title": "Concept Assistant",
+        "priorityTag": "Low Priority",
+        "type": "Activation",
+        "expectedArchetype": "The Noise",
+        "suggestedScores": { "impact": 2, "feasibility": 9, "scalability": 4 },
+        "friction": { "activeTime": 2, "waitTime": 1 }
+      }
+    }
+  },
+
+  "stateManagement": {
+    "description": "Application state variables by category",
+    "categories": {
+      "demoMode": {
+        "isDemoMode": "boolean - Demo mode toggle",
+        "selectedDemoInitiative": "string - Currently selected demo scenario",
+        "showLinkedDependencyAlert": "boolean - Show foundation dependency warning",
+        "demoPortfolio": "array - Accumulated demo portfolio items"
+      },
+      "humanOverride": {
+        "isHumanOverrideActive": "boolean - Enable manual score adjustment",
+        "humanOverrideDisclaimer": "string - Dynamic disclaimer text",
+        "overrideHistory": "array - Log of all score overrides with reasons"
+      },
+      "jiraSync": {
+        "jiraSyncStatus": "enum: pending | syncing | synced",
+        "isSyncingToJira": "boolean - Loading state for sync operation"
+      },
+      "workflow": {
+        "currentStep": "number (1-3) - Current wizard step",
+        "dataMode": "enum: manual | mcp"
+      },
+      "context": {
+        "isContextSet": "boolean - Context confirmed",
+        "contextTitle": "string - User-defined context name",
+        "clientContext": "string - Organization description",
+        "organizationalFocus": "string - Strategic focus area",
+        "resourceCapacity": "enum: high | medium | low",
+        "spaceKey": "string - Jira space identifier",
+        "workspaceContext": "object - Loaded workspace metadata"
+      },
+      "initiative": {
+        "initiativeTitle": "string - Initiative name",
+        "useCaseDescription": "string - AI use case details",
+        "prioritizationContext": "string - Additional context",
+        "workType": "enum: enablement | activation",
+        "makes10xFaster": "boolean - 10x bottleneck elimination"
+      },
+      "scoring": {
+        "impact": "number (1-10)",
+        "feasibility": "number (1-10)",
+        "scalability": "number (1-10)",
+        "mcpOriginalScores": "object - Original AI-suggested scores for comparison"
+      },
+      "foundations": {
+        "foundations": "array - Linked enablement dependencies"
+      }
+    }
+  }
+}
