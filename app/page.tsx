@@ -115,7 +115,8 @@ const DEMO_INITIATIVES = {
   'AI-101': {
     key: 'AI-101',
     title: 'Regional Variant Engine',
-    displayName: 'AI-101: Regional Variant Engine (Transformer)',
+    displayName: '[High Priority] AI-101: Regional Variant Engine (The Transformer)',
+    priorityTag: 'High Priority',
     bottleneck: 'Manual regional asset adaptation (4 days/market)',
     readiness: 'Ready' as const,
     links: ['DATA-05'],
@@ -130,7 +131,8 @@ const DEMO_INITIATIVES = {
   'DATA-05': {
     key: 'DATA-05',
     title: 'Brand-Kit API',
-    displayName: 'DATA-05: Brand-Kit API (The Foundation)',
+    displayName: '[Required Foundation] DATA-05: Brand-Kit API (The Foundation)',
+    priorityTag: 'Required Foundation',
     bottleneck: 'Inconsistent brand elements causing rework cycles',
     readiness: 'Siloed' as const,
     links: ['AI-101', 'AI-102', 'AI-103', 'AI-104'],
@@ -144,7 +146,8 @@ const DEMO_INITIATIVES = {
   'AI-202': {
     key: 'AI-202',
     title: 'Concept Assistant',
-    displayName: 'AI-202: Concept Assistant (The Noise)',
+    displayName: '[Low Priority] AI-202: Concept Assistant (The Noise)',
+    priorityTag: 'Low Priority',
     bottleneck: 'None (General Creative Inquiry)',
     readiness: 'Ready' as const,
     links: [],
@@ -538,19 +541,31 @@ export default function HyperadaptivePrioritizationEngine() {
     setIsDemoMode(enabled)
     
     if (enabled) {
-      // Auto-populate with MKTG-SUPPLY-CHAIN context
+      // Auto-populate with MKTG-SUPPLY-CHAIN context and RESET to Step 1
       const demoContext = mockWorkspaceData['MKTG-SUPPLY-CHAIN']
       setSpaceKey('MKTG-SUPPLY-CHAIN')
       setWorkspaceContext(demoContext)
       setOrganizationalFocus(demoContext.focus[0] || 'OPEX Reduction')
       setResourceCapacity('medium')
       setDataMode('mcp')
-      setIsContextSet(true)
-      setCurrentStep(2)
+      setIsContextSet(false) // Start at Step 1, not auto-confirmed
+      setCurrentStep(1) // Force reset to Step 1: Set Context
+      
+      // Clear any previous demo selections
+      setSelectedDemoInitiative('')
+      setShowLinkedDependencyAlert(false)
+      setMcpData(null)
+      setUseCaseDescription('')
+      setPrioritizationContext('')
+      setImpact(5)
+      setFeasibility(5)
+      setScalability(5)
+      setMcpOriginalScores(null)
+      setFoundations([])
       
       toast({
         title: 'Demo Mode Activated',
-        description: 'Adobe Firefly Migration context loaded automatically.',
+        description: 'Review Strategic Context and confirm to proceed.',
       })
     } else {
       // Clear all demo state
@@ -640,14 +655,24 @@ export default function HyperadaptivePrioritizationEngine() {
       setFoundations([])
     }
     
-    // Move to Step 3 (Synthesis)
-    setCurrentStep(3)
+    // DO NOT auto-advance - wait for "Run AI Analysis" button click
+    // User must click CTA to proceed to Step 3
     
     toast({
       title: 'Initiative Loaded',
-      description: `${initiative.displayName} - Ready for analysis`,
+      description: `Click "Run AI Analysis & Synthesis" to proceed`,
     })
   }, [toast])
+
+  // Run AI Analysis (Demo Mode) - explicit CTA action
+  const runDemoAnalysis = useCallback(() => {
+    if (!selectedDemoInitiative) return
+    setCurrentStep(3)
+    toast({
+      title: 'Analysis Complete',
+      description: 'AI Synthesis results ready.',
+    })
+  }, [selectedDemoInitiative, toast])
 
   // Reset Demo Initiative
   const resetDemoInitiative = useCallback(() => {
@@ -1430,49 +1455,96 @@ export default function HyperadaptivePrioritizationEngine() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Demo Mode Auto-Context Notice */}
+                {/* Demo Mode: Strategic Dossier (Executive Summary) */}
                 {isDemoMode && workspaceContext && (
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-amber-600" />
-                        <span className="font-medium text-amber-700">Demo Context Auto-Loaded</span>
-                      </div>
-                      <p className="text-sm text-amber-600">
-                        The Adobe Firefly Migration context has been automatically applied. 
-                      </p>
-                    </div>
-
-                    {/* Display loaded context */}
-                    <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <div className="space-y-6">
+                    {/* Strategic Dossier Header */}
+                    <div className="rounded-xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-6 space-y-5">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-foreground">{workspaceContext.name}</h3>
-                        <Badge className="bg-amber-500/20 text-amber-700">Demo</Badge>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20">
+                            <Target className="h-5 w-5 text-amber-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg text-foreground">Strategic Dossier</h3>
+                            <p className="text-sm text-muted-foreground">Adobe Firefly Content Supply Chain</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-amber-500 text-white hover:bg-amber-600">
+                          Demo Mode
+                        </Badge>
                       </div>
 
-                      <div className="rounded-md bg-background/50 p-3">
-                        <Label className="text-xs text-muted-foreground">Client Context</Label>
-                        <p className="mt-1 text-sm text-foreground">{workspaceContext.description}</p>
+                      {/* Executive Summary */}
+                      <div className="rounded-lg bg-background/80 border border-border p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <FileEdit className="h-4 w-4 text-muted-foreground" />
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Executive Summary</Label>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">{workspaceContext.description}</p>
                       </div>
                       
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Strategic Focus</Label>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {workspaceContext.focus.map((f) => (
-                            <Badge key={f} variant="secondary">{f}</Badge>
+                      {/* Key Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="rounded-lg bg-background/80 border border-border p-4">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Strategic Focus</Label>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {workspaceContext.focus.map((f) => (
+                              <Badge key={f} className="bg-primary/10 text-primary border-primary/20">{f}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="rounded-lg bg-background/80 border border-border p-4">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resource Capacity</Label>
+                          <div className="mt-2">
+                            <Badge variant="outline" className="capitalize text-sm px-3 py-1">{resourceCapacity}</Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Constraints */}
+                      <div className="rounded-lg bg-background/80 border border-border p-4">
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active Constraints</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {workspaceContext.constraints.map((c) => (
+                            <Badge key={c} variant="outline" className="border-orange-500/30 text-orange-600">{c}</Badge>
                           ))}
                         </div>
                       </div>
 
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Resource Capacity</Label>
-                        <Badge variant="outline" className="ml-2 capitalize">{resourceCapacity}</Badge>
+                      {/* Available Enablers */}
+                      <div className="rounded-lg bg-background/80 border border-border p-4">
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Foundational Enablers</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {workspaceContext.enablers.map((e) => (
+                            <Badge 
+                              key={e.key} 
+                              variant="outline" 
+                              className={
+                                e.status === 'Active' ? 'border-emerald-500/30 text-emerald-600' :
+                                e.status === 'Stalled' ? 'border-orange-500/30 text-orange-600' :
+                                'border-red-500/30 text-red-600'
+                              }
+                            >
+                              {e.key}: {e.status}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    <Button onClick={() => setCurrentStep(2)} className="w-full">
-                      Proceed to Initiative Selection
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                    {/* CTA Button - Glowing Effect */}
+                    <Button 
+                      onClick={() => {
+                        setIsContextSet(true)
+                        setCurrentStep(2)
+                      }} 
+                      className="w-full h-14 text-base font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/30"
+                    >
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
+                      Step 1: Confirm Strategic Context
+                      <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </div>
                 )}
@@ -1696,51 +1768,133 @@ export default function HyperadaptivePrioritizationEngine() {
               </div>
             )}
 
-            {/* Demo Mode: Initiative Dropdown */}
+            {/* Demo Mode: Scenario Selector */}
             {isDemoMode && (
-              <Card className="border-amber-500/30 bg-amber-500/5">
+              <Card className="border-2 border-amber-500/50 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
                 <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Sparkles className="h-4 w-4 text-amber-600" />
-                    Select Demo Initiative
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Sparkles className="h-5 w-5 text-amber-600" />
+                    Select Demo Scenario
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Choose an initiative to see how the IFS framework classifies different use case archetypes.
                   </p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   <Select value={selectedDemoInitiative} onValueChange={handleDemoInitiativeSelect}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an initiative to analyze..." />
+                    <SelectTrigger className="w-full h-12 text-base">
+                      <SelectValue placeholder="Select a scenario to analyze..." />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(DEMO_INITIATIVES).map(([key, initiative]) => (
-                        <SelectItem key={key} value={key}>
-                          <div className="flex items-center gap-2">
-                            <span>{initiative.displayName}</span>
+                        <SelectItem key={key} value={key} className="py-3">
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant="outline" 
+                              className={
+                                initiative.priorityTag === 'High Priority' ? 'border-emerald-500/50 text-emerald-600 text-xs' :
+                                initiative.priorityTag === 'Required Foundation' ? 'border-purple-500/50 text-purple-600 text-xs' :
+                                'border-gray-500/50 text-gray-600 text-xs'
+                              }
+                            >
+                              {initiative.priorityTag}
+                            </Badge>
+                            <span>{initiative.key}: {initiative.title}</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
+                  {/* Selected Initiative Details */}
+                  {selectedDemoInitiative && mcpData && (
+                    <div className="space-y-5 rounded-xl border border-border bg-card p-5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
+                      {/* Initiative Header */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="font-mono">{selectedDemoInitiative}</Badge>
+                            <Badge variant={workType === 'enablement' ? 'default' : 'secondary'}>
+                              {workType === 'enablement' ? 'Enablement' : 'Activation'}
+                            </Badge>
+                          </div>
+                          <h4 className="font-semibold text-lg">{mcpData.title}</h4>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-emerald-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified via MCP</span>
+                        </div>
+                      </div>
+
+                      {/* IFS Score Preview (Animated) */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 rounded-lg bg-muted/50 transition-all duration-500">
+                          <div className="text-2xl font-bold text-primary transition-all duration-500">{impact}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Impact</div>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-muted/50 transition-all duration-500">
+                          <div className="text-2xl font-bold text-primary transition-all duration-500">{feasibility}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Feasibility</div>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-muted/50 transition-all duration-500">
+                          <div className="text-2xl font-bold text-primary transition-all duration-500">{scalability}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Scalability</div>
+                        </div>
+                      </div>
+
+                      {/* Friction Bar Visualization */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">Workflow Friction Analysis</span>
+                          <span className="text-muted-foreground">
+                            {Math.round((mcpData.waitTime / (mcpData.activeTime + mcpData.waitTime)) * 100)}% Wait State
+                          </span>
+                        </div>
+                        <div className="flex h-8 overflow-hidden rounded-lg border transition-all duration-700">
+                          <div 
+                            className="bg-emerald-500 flex items-center justify-center text-xs font-medium text-white transition-all duration-700"
+                            style={{ width: `${(mcpData.activeTime / (mcpData.activeTime + mcpData.waitTime)) * 100}%` }}
+                          >
+                            {mcpData.activeTime > 10 && `Active: ${mcpData.activeTime}h`}
+                          </div>
+                          <div 
+                            className="bg-red-500 flex items-center justify-center text-xs font-medium text-white transition-all duration-700"
+                            style={{ width: `${(mcpData.waitTime / (mcpData.activeTime + mcpData.waitTime)) * 100}%` }}
+                          >
+                            {mcpData.waitTime > 10 && `Wait: ${mcpData.waitTime}h`}
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-emerald-600 font-medium">Active Work: {mcpData.activeTime}h</span>
+                          <span className="text-red-600 font-medium">Systemic Roadblock: {mcpData.waitTime}h</span>
+                        </div>
+                      </div>
+
+                      {/* Impact Hint */}
+                      <div className="rounded-lg bg-muted/30 p-3 border border-border">
+                        <p className="text-sm text-muted-foreground italic">{mcpData.impactHint}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Linked Dependency Alert (for AI-101) */}
                   {showLinkedDependencyAlert && selectedDemoInitiative === 'AI-101' && (
-                    <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4 space-y-2">
+                    <div className="rounded-lg border-2 border-red-500/50 bg-red-500/10 p-4 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Link2 className="h-5 w-5 text-blue-600" />
-                        <span className="font-medium text-blue-700">Linked Dependency Found</span>
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <span className="font-semibold text-red-700">Critical Path: Requires DATA-05 Foundation</span>
                       </div>
-                      <p className="text-sm text-blue-600">
+                      <p className="text-sm text-red-600">
                         This Activation initiative depends on <strong>DATA-05: Brand-Kit API</strong> (Enablement).
-                        The foundation must be in place for full value realization.
+                        The foundation must be completed first for full value realization.
                       </p>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="border-blue-500/50 text-blue-700"
+                        className="border-red-500/50 text-red-700 hover:bg-red-500/10"
                         onClick={() => handleDemoInitiativeSelect('DATA-05')}
                       >
+                        <Layers className="mr-2 h-4 w-4" />
                         View Foundation: DATA-05
                       </Button>
                     </div>
@@ -1748,29 +1902,43 @@ export default function HyperadaptivePrioritizationEngine() {
 
                   {/* Enablement Multiplier Alert (for DATA-05) */}
                   {selectedDemoInitiative === 'DATA-05' && (
-                    <div className="rounded-lg border border-purple-500/50 bg-purple-500/10 p-4 space-y-2">
+                    <div className="rounded-lg border-2 border-purple-500/50 bg-purple-500/10 p-4 space-y-3">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-purple-600" />
-                        <span className="font-medium text-purple-700">Enablement Multiplier: +2 Impact</span>
+                        <span className="font-semibold text-purple-700">Enablement Multiplier: +2 Impact Bonus</span>
                       </div>
                       <p className="text-sm text-purple-600">
-                        This Enablement initiative unlocks <strong>4 Activation use cases</strong> (AI-101, AI-102, AI-103, AI-104).
+                        This Enablement initiative unlocks <strong>4 Activation use cases</strong>. 
                         The +2 Impact bonus reflects its strategic foundation value.
                       </p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-101: Regional Variant Engine</Badge>
-                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-102: Smart Email</Badge>
-                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-103: Campaign Scheduler</Badge>
-                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-104: Performance Analyzer</Badge>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30">AI-101: Regional Variant</Badge>
+                        <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30">AI-102: Smart Email</Badge>
+                        <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30">AI-103: Scheduler</Badge>
+                        <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30">AI-104: Analyzer</Badge>
                       </div>
                     </div>
                   )}
 
+                  {/* CTA Buttons */}
                   {selectedDemoInitiative && (
-                    <Button variant="outline" onClick={resetDemoInitiative} className="w-full">
-                      <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
-                      Reset &amp; Select New Initiative
-                    </Button>
+                    <div className="space-y-3 pt-2">
+                      {/* Primary CTA - Run AI Analysis */}
+                      <Button 
+                        onClick={runDemoAnalysis}
+                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
+                      >
+                        <Brain className="mr-2 h-5 w-5" />
+                        Run AI Analysis & Synthesis
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+
+                      {/* Secondary - Reset */}
+                      <Button variant="outline" onClick={resetDemoInitiative} className="w-full">
+                        <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
+                        Reset & Select Different Scenario
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -1838,8 +2006,8 @@ export default function HyperadaptivePrioritizationEngine() {
               </Card>
             )}
 
-            {/* Initiative Description (hidden in demo mode when initiative selected) */}
-            {(!isDemoMode || !selectedDemoInitiative) && (
+            {/* Initiative Description (completely hidden in demo mode) */}
+            {!isDemoMode && (
             <Card className={!isContextSet ? 'opacity-50 pointer-events-none' : ''}>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -2099,33 +2267,45 @@ export default function HyperadaptivePrioritizationEngine() {
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      Friction Metrics
+                      Workflow Friction Analysis
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-between text-sm">
-                      <span className="flex items-center gap-1.5">
-                        <Activity className="h-3.5 w-3.5 text-emerald-500" />
-                        Active: {aggregatedFriction.activeTime}h
+                      <span className="flex items-center gap-1.5 font-medium text-emerald-600">
+                        <Activity className="h-3.5 w-3.5" />
+                        Active Work: {aggregatedFriction.activeTime}h
                       </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-red-500" />
-                        Wait: {aggregatedFriction.waitTime}h
+                      <span className="flex items-center gap-1.5 font-medium text-red-600">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Systemic Roadblock: {aggregatedFriction.waitTime}h
                       </span>
                     </div>
-                    <div className="flex h-6 overflow-hidden rounded-full">
+                    <div className="flex h-8 overflow-hidden rounded-lg border">
                       <div 
-                        className="bg-emerald-500"
+                        className="bg-emerald-500 flex items-center justify-center"
                         style={{ width: `${(1 - aggregatedFriction.ratio) * 100}%` }}
-                      />
+                      >
+                        {(1 - aggregatedFriction.ratio) > 0.15 && (
+                          <span className="text-xs font-medium text-white">Active</span>
+                        )}
+                      </div>
                       <div 
-                        className="bg-red-500"
+                        className="bg-red-500 flex items-center justify-center"
                         style={{ width: `${aggregatedFriction.ratio * 100}%` }}
-                      />
+                      >
+                        {aggregatedFriction.ratio > 0.15 && (
+                          <span className="text-xs font-medium text-white">Roadblock</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-center text-muted-foreground">
+                      {Math.round(aggregatedFriction.ratio * 100)}% of cycle time is spent waiting
                     </div>
                     {aggregatedFriction.ratio > 0.6 && (
-                      <Badge variant="outline" className="border-amber-500/50 text-amber-600">
-                        High Automation Potential
+                      <Badge className="w-full justify-center bg-amber-500/20 text-amber-700 border border-amber-500/30">
+                        <Zap className="mr-1.5 h-3.5 w-3.5" />
+                        High Automation Potential - AI can eliminate wait states
                       </Badge>
                     )}
                   </CardContent>
@@ -2144,16 +2324,23 @@ export default function HyperadaptivePrioritizationEngine() {
                     <div className="mb-4 text-6xl font-bold tabular-nums tracking-tight text-foreground">
                       {totalScore}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}>
-                        {archetype.name}
-                      </Badge>
-                      {isCriticalPath && (
-                        <Badge className="bg-red-600 text-white hover:bg-red-600">
-                          Critical Path
-                        </Badge>
-                      )}
-                    </div>
+<div className="flex flex-wrap items-center justify-center gap-2">
+  <Badge className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}>
+  {archetype.name}
+  </Badge>
+  {isCriticalPath && (
+  <Badge className="bg-red-600 text-white hover:bg-red-600">
+  Critical Path
+  </Badge>
+  )}
+  {/* Demo Mode: Dependency Alert for AI-101 */}
+  {isDemoMode && selectedDemoInitiative === 'AI-101' && showLinkedDependencyAlert && (
+  <Badge className="bg-red-600/90 text-white hover:bg-red-600 border border-red-400">
+  <AlertTriangle className="mr-1 h-3 w-3" />
+  Requires DATA-05 Foundation
+  </Badge>
+  )}
+  </div>
                   </div>
                 </CardContent>
               </Card>
@@ -2348,6 +2535,30 @@ export default function HyperadaptivePrioritizationEngine() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Demo Mode: Test Another Scenario Button */}
+              {isDemoMode && selectedDemoInitiative && (
+                <Card className="border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+                  <CardContent className="p-6">
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <Sparkles className="h-5 w-5 text-amber-600" />
+                        <span className="font-medium text-foreground">Demo Mode Active</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        See how different initiatives receive different archetype classifications based on IFS scores.
+                      </p>
+                      <Button 
+                        onClick={resetDemoInitiative}
+                        className="w-full h-12 text-base font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                      >
+                        <ArrowRight className="mr-2 h-5 w-5 rotate-180" />
+                        Test Another Scenario
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         )}
