@@ -1359,24 +1359,43 @@ export default function HyperadaptivePrioritizationEngine() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Context Affinity Meter */}
-                {isContextSet && useCaseDescription && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs text-muted-foreground">Context Affinity</Label>
-                      <span className="text-xs font-medium">{contextAffinity}%</span>
-                    </div>
-                    <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`transition-all duration-500 ${
-                          contextAffinity >= 70 ? 'bg-emerald-500' : 
-                          contextAffinity >= 40 ? 'bg-amber-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${contextAffinity}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+{/* Context Affinity Meter */}
+  {isContextSet && useCaseDescription && (
+  <div className="space-y-2">
+  <div className="flex items-center justify-between">
+  <div className="flex items-center gap-1.5">
+    <Label className="text-xs text-muted-foreground">Context Affinity</Label>
+    <div className="group relative">
+      <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+      <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+        <p className="font-medium text-foreground mb-1">Context Affinity Score</p>
+        <p className="text-muted-foreground mb-2">
+          Measures how well this initiative aligns with your organizational context:
+        </p>
+        <ul className="text-muted-foreground space-y-1 list-disc pl-3">
+          <li><span className="text-emerald-600 font-medium">70%+</span>: Strong alignment with focus and enablers</li>
+          <li><span className="text-amber-600 font-medium">40-69%</span>: Moderate fit; some constraints</li>
+          <li><span className="text-red-600 font-medium">&lt;40%</span>: Misaligned or blocked by dependencies</li>
+        </ul>
+        <p className="text-muted-foreground mt-2 italic">
+          Factors: Strategic alignment, blocker penalties, keyword matches in description.
+        </p>
+      </div>
+    </div>
+  </div>
+  <span className="text-xs font-medium">{contextAffinity}%</span>
+  </div>
+  <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
+  <div
+  className={`transition-all duration-500 ${
+  contextAffinity >= 70 ? 'bg-emerald-500' :
+  contextAffinity >= 40 ? 'bg-amber-500' : 'bg-red-500'
+  }`}
+  style={{ width: `${contextAffinity}%` }}
+  />
+  </div>
+  </div>
+  )}
 
                 <Textarea
                   placeholder="Describe the AI initiative..."
