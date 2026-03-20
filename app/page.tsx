@@ -1004,11 +1004,94 @@ export default function HyperadaptivePrioritizationEngine() {
                 )}
               </div>
             ))}
-          </div>
-        </div>
-      </div>
+</div>
+  </div>
+  </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+  {/* IFS Framework Reference - Always visible below header */}
+  <div className="border-b border-border bg-muted/30">
+    <div className="mx-auto max-w-7xl px-6 py-4">
+      <button
+        onClick={() => setIsFrameworkOpen(!isFrameworkOpen)}
+        className="flex w-full items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3 text-left transition-colors hover:bg-card/80"
+      >
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">IFS Framework Reference</span>
+          <span className="text-xs text-muted-foreground">(Impact x Scalability) x Feasibility</span>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+            isFrameworkOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {isFrameworkOpen && (
+        <Card className="mt-4">
+          <CardContent className="p-6 space-y-6">
+            {/* IFS Dimensions */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {/* Impact */}
+              <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <span className="font-semibold">Impact (Systemic Flow)</span>
+                </div>
+                <p className="text-xs italic text-muted-foreground">
+                  "Does this eliminate the primary Wait State?"
+                </p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="text-emerald-600 font-medium">Principle: Focus on Flow, not Tasks</p>
+                  <p><span className="font-medium">(1-3):</span> Localized task speed-up</p>
+                  <p><span className="font-medium">(4-7):</span> Reduces secondary bottleneck</p>
+                  <p><span className="font-medium">(8-10):</span> Resolves primary constraint</p>
+                </div>
+              </div>
+              {/* Feasibility */}
+              <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-emerald-500" />
+                  <span className="font-semibold">Feasibility (Foundational Readiness)</span>
+                </div>
+                <p className="text-xs italic text-muted-foreground">
+                  "Are data, APIs, and Human Systems ready?"
+                </p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="text-emerald-600 font-medium">Principle: Readiness over Ambition</p>
+                  <p><span className="font-medium">(1-3):</span> Requires significant Enablement</p>
+                  <p><span className="font-medium">(4-7):</span> Minor gaps; assets need refinement</p>
+                  <p><span className="font-medium">(8-10):</span> All assets ready (SSOT verified)</p>
+                </div>
+              </div>
+              {/* Scalability */}
+              <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-blue-500" />
+                  <span className="font-semibold">Scalability (Autonomous Velocity)</span>
+                </div>
+                <p className="text-xs italic text-muted-foreground">
+                  "Can this run 10,000x without human bottleneck?"
+                </p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="text-emerald-600 font-medium">Principle: Machine Speed over Human Pace</p>
+                  <p><span className="font-medium">(1-3):</span> Manual prompting; high variable cost</p>
+                  <p><span className="font-medium">(4-7):</span> Hybrid; human-in-loop for &gt;30%</p>
+                  <p><span className="font-medium">(8-10):</span> Fully automated via API</p>
+                </div>
+              </div>
+            </div>
+            {/* Formula */}
+            <div className="rounded-lg bg-primary/5 px-4 py-3 text-center">
+              <code className="text-sm font-medium">(I x S) x F = Score (Max: 1000)</code>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  </div>
+  
+  <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Step 1: Context & Constraints */}
         {currentStep === 1 && (
           <div className="mx-auto max-w-2xl space-y-6">
@@ -1140,83 +1223,7 @@ export default function HyperadaptivePrioritizationEngine() {
               </CardContent>
             </Card>
 
-            {/* IFS Framework Reference - Collapsed */}
-            <button
-              onClick={() => setIsFrameworkOpen(!isFrameworkOpen)}
-              className="flex w-full items-center justify-between rounded-lg border border-border/50 bg-card/80 px-4 py-3 text-left transition-colors hover:bg-card"
-            >
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">IFS Framework Reference</span>
-              </div>
-              <ChevronDown
-                className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
-                  isFrameworkOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-
-            {isFrameworkOpen && (
-              <Card>
-                <CardContent className="p-6 space-y-6">
-                  {/* IFS Dimensions */}
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    {/* Impact */}
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-amber-500" />
-                        <span className="font-semibold">Impact (Systemic Flow)</span>
-                      </div>
-                      <p className="text-xs italic text-muted-foreground">
-                        "Does this eliminate the primary Wait State?"
-                      </p>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p className="text-emerald-600 font-medium">Principle: Focus on Flow, not Tasks</p>
-                        <p><span className="font-medium">(1-3):</span> Localized task speed-up</p>
-                        <p><span className="font-medium">(4-7):</span> Reduces secondary bottleneck</p>
-                        <p><span className="font-medium">(8-10):</span> Resolves primary constraint</p>
-                      </div>
-                    </div>
-                    {/* Feasibility */}
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Target className="h-4 w-4 text-emerald-500" />
-                        <span className="font-semibold">Feasibility (Foundational Readiness)</span>
-                      </div>
-                      <p className="text-xs italic text-muted-foreground">
-                        "Are data, APIs, and Human Systems ready?"
-                      </p>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p className="text-emerald-600 font-medium">Principle: Readiness over Ambition</p>
-                        <p><span className="font-medium">(1-3):</span> Requires significant Enablement</p>
-                        <p><span className="font-medium">(4-7):</span> Minor gaps; assets need refinement</p>
-                        <p><span className="font-medium">(8-10):</span> All assets ready (SSOT verified)</p>
-                      </div>
-                    </div>
-                    {/* Scalability */}
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-blue-500" />
-                        <span className="font-semibold">Scalability (Autonomous Velocity)</span>
-                      </div>
-                      <p className="text-xs italic text-muted-foreground">
-                        "Can this run 10,000x without human bottleneck?"
-                      </p>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p className="text-emerald-600 font-medium">Principle: Machine Speed over Human Pace</p>
-                        <p><span className="font-medium">(1-3):</span> Manual prompting; high variable cost</p>
-                        <p><span className="font-medium">(4-7):</span> Hybrid; human-in-loop for &gt;30%</p>
-                        <p><span className="font-medium">(8-10):</span> Fully automated via API</p>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Formula */}
-                  <div className="rounded-lg bg-primary/5 px-4 py-3 text-center">
-                    <code className="text-sm font-medium">(I x S) x F = Score (Max: 1000)</code>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            
           </div>
         )}
 
