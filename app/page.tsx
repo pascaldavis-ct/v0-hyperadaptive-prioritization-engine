@@ -34,42 +34,61 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 
-// Dummy MCP data for simulation
+// Mock Jira data for MCP simulation
+const mockJiraData: Record<string, {
+  title: string
+  bottleneck: string
+  readiness: 'Ready' | 'Siloed' | 'Partial'
+  links: string[]
+  type: 'Activation' | 'Enablement'
+  impact_hint: string
+}> = {
+  'AI-101': {
+    title: 'Automated Claims Processing',
+    bottleneck: 'Manual data entry from PDFs (8 hours/day)',
+    readiness: 'Siloed',
+    links: ['INFRA-20', 'DATA-05', 'DATA-09'],
+    type: 'Activation',
+    impact_hint: 'Eliminates primary entry bottleneck for the billing team.',
+  },
+  'DATA-05': {
+    title: 'Snowflake-to-Model Pipeline',
+    bottleneck: 'No real-time data flow for AI models',
+    readiness: 'Ready',
+    links: ['AI-101', 'AI-105', 'AI-202'],
+    type: 'Enablement',
+    impact_hint: 'Unlocks 3 high-impact activation use cases.',
+  },
+}
+
+// Transform mockJiraData to internal format for MCP lookup
 const MOCK_MCP_DATA: Record<string, {
   primaryBottleneck: string
   dataReadiness: string
   linkedDependencies: { key: string; type: 'enablement' | 'activation' }[]
   description: string
-}> = {
-  'AI-101': {
-    primaryBottleneck: 'Manual translation coordination creating 3-week delays',
-    dataReadiness: 'Translation APIs available, content structure needs updates',
-    linkedDependencies: [
-      { key: 'AI-102', type: 'activation' },
-      { key: 'AI-103', type: 'activation' },
-      { key: 'AI-104', type: 'activation' },
-      { key: 'AI-105', type: 'activation' },
-    ],
-    description: 'Implement automated localization pipeline for global market deployment',
-  },
-  'AI-200': {
-    primaryBottleneck: 'Hero image creation requires 5 handoffs between teams',
-    dataReadiness: 'Design assets partially available, brand guidelines need documentation',
-    linkedDependencies: [
-      { key: 'AI-201', type: 'activation' },
-    ],
-    description: 'Optimize hero image generation workflow with AI-assisted design',
-  },
-  'AI-300': {
-    primaryBottleneck: 'Customer onboarding takes 14 days with 8 manual touchpoints',
-    dataReadiness: 'Customer data available in CRM, integration APIs ready',
-    linkedDependencies: [
-      { key: 'AI-301', type: 'enablement' },
-      { key: 'AI-302', type: 'activation' },
-    ],
-    description: 'Automate customer onboarding with personalized AI-driven workflows',
-  },
-}
+  title: string
+  impactHint: string
+  workType: 'enablement' | 'activation'
+}> = Object.fromEntries(
+  Object.entries(mockJiraData).map(([key, data]) => [
+    key,
+    {
+      primaryBottleneck: data.bottleneck,
+      dataReadiness: data.readiness === 'Ready' ? 'Data available and integrated' : 
+                     data.readiness === 'Siloed' ? 'Data exists but siloed across systems' : 
+                     'Partial data available, needs integration',
+      linkedDependencies: data.links.map(link => ({
+        key: link,
+        type: (mockJiraData[link]?.type?.toLowerCase() as 'enablement' | 'activation') || 'activation'
+      })),
+      description: data.title,
+      title: data.title,
+      impactHint: data.impact_hint,
+      workType: data.type.toLowerCase() as 'enablement' | 'activation',
+    }
+  ])
+)
 
 interface Archetype {
   name: string
@@ -253,16 +272,19 @@ export default function HyperadaptivePrioritizationEngine() {
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
-    if (data) {
-      setMcpData(data)
-      setUseCaseDescription(data.description)
-      // Set work type based on linked dependencies
-      const hasEnablementLinks = data.linkedDependencies.some(d => d.type === 'enablement')
-      setWorkType(hasEnablementLinks ? 'enablement' : 'activation')
-    } else {
-      setMcpData(null)
-    }
+const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
+  if (data) {
+  setMcpData(data)
+  setUseCaseDescription(data.title)
+  // Set work type from the ticket's type
+  setWorkType(data.workType)
+  // Update prioritization context with impact hint
+  if (data.impactHint) {
+    setPrioritizationContext(prev => prev ? `${prev}\n\nMCP Impact Hint: ${data.impactHint}` : `MCP Impact Hint: ${data.impactHint}`)
+  }
+  } else {
+  setMcpData(null)
+  }
 
     setIsFetchingMcp(false)
   }
