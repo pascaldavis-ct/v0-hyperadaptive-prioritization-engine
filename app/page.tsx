@@ -1386,13 +1386,37 @@ export default function HyperadaptivePrioritizationEngine() {
                   disabled={!isContextSet}
                 />
 
-                <Textarea
-                  placeholder="Additional prioritization context..."
-                  value={prioritizationContext}
-                  onChange={(e) => setPrioritizationContext(e.target.value)}
-                  className="min-h-16 resize-none"
-                  disabled={!isContextSet}
-                />
+                {/* Additional Prioritization Context */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Additional Prioritization Context</Label>
+                    <div className="group relative">
+                      <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                      <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                        <p className="font-medium text-foreground mb-1">Prioritization Context</p>
+                        <p className="text-muted-foreground mb-2">
+                          Provide supplementary information that influences scoring and analysis:
+                        </p>
+                        <ul className="text-muted-foreground space-y-1 list-disc pl-3">
+                          <li>Business goals and deadlines</li>
+                          <li>Team capabilities and constraints</li>
+                          <li>Dependencies on other initiatives</li>
+                          <li>Stakeholder requirements</li>
+                        </ul>
+                        <p className="text-muted-foreground mt-2 italic">
+                          In MCP mode, impact hints are auto-populated here.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <Textarea
+                    placeholder="Add context like business goals, deadlines, dependencies, team capabilities, or constraints that should influence the analysis..."
+                    value={prioritizationContext}
+                    onChange={(e) => setPrioritizationContext(e.target.value)}
+                    className="min-h-16 resize-none"
+                    disabled={!isContextSet}
+                  />
+                </div>
 
                 {/* Initiative Type */}
                 <div className="space-y-2">
