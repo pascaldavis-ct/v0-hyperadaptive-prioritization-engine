@@ -1437,9 +1437,28 @@ export default function HyperadaptivePrioritizationEngine() {
                   />
                 </div>
 
-                {/* Initiative Type */}
-                <div className="space-y-2">
-                  <Label className="text-sm">Initiative Type</Label>
+{/* Initiative Type */}
+                  <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Initiative Type</Label>
+                    <div className="group relative">
+                      <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                      <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                        <p className="font-medium text-foreground mb-2">Initiative Type</p>
+                        <div className="space-y-2 text-muted-foreground">
+                          <div>
+                            <p className="font-medium text-foreground">Activation</p>
+                            <p>Business use cases that deliver direct value to end users or customers. These are the "what" - AI-powered solutions that solve real problems.</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">Enablement</p>
+                            <p>Foundation/infrastructure work that unlocks multiple Activation initiatives. These are the "how" - data pipelines, APIs, and platforms.</p>
+                          </div>
+                          <p className="italic mt-2 text-emerald-600">Enablement initiatives linked to 3+ Activations receive a +2 Impact bonus.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant={workType === 'activation' ? 'default' : 'outline'}
@@ -1462,7 +1481,7 @@ export default function HyperadaptivePrioritizationEngine() {
                       Enablement
                     </Button>
                   </div>
-                </div>
+                  </div>
 
                 {/* Bottleneck Test */}
                 <div className="rounded-lg border border-border bg-muted/30 p-4">
