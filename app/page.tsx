@@ -119,44 +119,44 @@ const mockJiraData: Record<string, {
     readiness: 'Ready',
     links: ['DATA-05'],
     type: 'Activation',
-    impact_hint: 'Eliminates primary localization bottleneck.',
-    active_time: 8,
-    wait_time: 88,
-    suggested_scores: { impact: 8, feasibility: 7, scalability: 9 },
+    impact_hint: 'Eliminates primary localization bottleneck; transforms 50-market rollout.',
+    active_time: 4,
+    wait_time: 92,
+    suggested_scores: { impact: 9, feasibility: 8, scalability: 9 },
     requiredEnablers: ['DATA-05'],
   },
   'DATA-05': {
     title: 'Global Terminology Database',
-    bottleneck: 'Inconsistent brand voice across regions',
+    bottleneck: 'Inconsistent brand voice causing rework',
     readiness: 'Siloed',
     links: ['AI-101', 'AI-102', 'AI-103', 'AI-104'],
     type: 'Enablement',
-    impact_hint: 'Unlocks 4 high-impact activation use cases.',
+    impact_hint: 'Strategic Foundation: Unlocks 4 high-impact activation use cases.',
     active_time: 20,
-    wait_time: 40,
+    wait_time: 10,
     suggested_scores: { impact: 9, feasibility: 4, scalability: 8 },
   },
   'AI-202': {
-    title: 'Generic FAQ Chatbot',
-    bottleneck: 'None (General Inquiry)',
+    title: 'Internal FAQ Chatbot',
+    bottleneck: 'None (General Admin)',
     readiness: 'Ready',
     links: [],
     type: 'Activation',
-    impact_hint: 'Does not address a primary workflow constraint.',
-    active_time: 30,
-    wait_time: 10,
-    suggested_scores: { impact: 3, feasibility: 9, scalability: 5 },
+    impact_hint: 'Low-impact "Noise"; does not address a primary workflow constraint.',
+    active_time: 2,
+    wait_time: 1,
+    suggested_scores: { impact: 2, feasibility: 9, scalability: 4 },
   },
   'INFRA-99': {
-    title: 'Vector Database Setup',
-    bottleneck: 'No retrieval infrastructure for RAG',
+    title: 'Vector Database (RAG Infrastructure)',
+    bottleneck: 'No retrieval infrastructure for unstructured data',
     readiness: 'Ready',
-    links: ['AI-301', 'AI-302'],
+    links: ['AI-301'],
     type: 'Enablement',
-    impact_hint: 'Prerequisite for all RAG-based search tools.',
-    active_time: 16,
-    wait_time: 4,
-    suggested_scores: { impact: 7, feasibility: 8, scalability: 9 },
+    impact_hint: 'Standard Foundation work; limited initial multiplier.',
+    active_time: 40,
+    wait_time: 5,
+    suggested_scores: { impact: 6, feasibility: 8, scalability: 7 },
   },
   'AI-102': {
     title: 'Smart Email Composer',
@@ -369,8 +369,30 @@ function generateReasoning(
   return reasoning + `${flowAnalysis} ${velocityAnalysis}`
 }
 
+// Demo Portfolio Item type
+interface DemoPortfolioItem {
+  key: string
+  title: string
+  type: 'Activation' | 'Enablement'
+  archetype: Archetype
+  totalScore: number
+  impact: number
+  feasibility: number
+  scalability: number
+  activeTime: number
+  waitTime: number
+  impactHint: string
+  linkedTo?: string[]
+  hasEnablementBonus: boolean
+  isCriticalPath: boolean
+}
+
 export default function HyperadaptivePrioritizationEngine() {
   const { toast } = useToast()
+  
+  // Demo Mode State
+  const [isDemoMode, setIsDemoMode] = useState(false)
+  const [demoPortfolio, setDemoPortfolio] = useState<DemoPortfolioItem[]>([])
   
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1)
@@ -427,6 +449,59 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Framework visibility
   const [isFrameworkOpen, setIsFrameworkOpen] = useState(false)
+
+  // Load Sample Portfolio for Demo Mode
+  const loadSamplePortfolio = useCallback(() => {
+    const demoKeys = ['AI-101', 'DATA-05', 'AI-202', 'INFRA-99']
+    const portfolio: DemoPortfolioItem[] = []
+
+    for (const key of demoKeys) {
+      const jiraData = mockJiraData[key]
+      if (!jiraData) continue
+
+      const scores = jiraData.suggested_scores || { impact: 5, feasibility: 5, scalability: 5 }
+      const workType = jiraData.type.toLowerCase() as 'enablement' | 'activation'
+      
+      // Calculate enablement bonus (+2 if Enablement with 3+ Activation links)
+      const activationLinks = jiraData.links.filter(link => mockJiraData[link]?.type === 'Activation').length
+      const hasEnablementBonus = workType === 'enablement' && activationLinks >= 3
+      const adjustedImpact = Math.min(10, scores.impact + (hasEnablementBonus ? 2 : 0))
+      
+      const totalScore = adjustedImpact * scores.scalability * scores.feasibility
+      
+      // Critical Path: Activation that depends on an Enablement
+      const isCriticalPath = workType === 'activation' && jiraData.links.some(link => mockJiraData[link]?.type === 'Enablement')
+      
+      const archetype = getArchetype(totalScore, adjustedImpact, scores.scalability, scores.feasibility, workType)
+      
+      portfolio.push({
+        key,
+        title: jiraData.title,
+        type: jiraData.type,
+        archetype,
+        totalScore,
+        impact: adjustedImpact,
+        feasibility: scores.feasibility,
+        scalability: scores.scalability,
+        activeTime: jiraData.active_time,
+        waitTime: jiraData.wait_time,
+        impactHint: jiraData.impact_hint,
+        linkedTo: jiraData.links,
+        hasEnablementBonus,
+        isCriticalPath,
+      })
+    }
+
+    setDemoPortfolio(portfolio)
+    setDataMode('mcp')
+    setIsContextSet(true)
+    setCurrentStep(3)
+    
+    toast({
+      title: 'Sample Portfolio Loaded',
+      description: 'Loaded 4 initiatives with automated archetype classification.',
+    })
+  }, [toast])
 
   // Blocker detection
   const blockerAlert = useMemo(() => {
@@ -866,16 +941,22 @@ export default function HyperadaptivePrioritizationEngine() {
               MCP Preview
             </DialogTitle>
           </DialogHeader>
-          {previewData && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="font-mono text-base">
-                  {previewData.key}
-                </Badge>
-                <Badge variant={previewData.data.workType === 'enablement' ? 'default' : 'secondary'}>
-                  {previewData.data.workType === 'enablement' ? 'Enablement' : 'Activation'}
-                </Badge>
-              </div>
+{previewData && (
+  <div className="space-y-4 py-4">
+  {/* Verified via MCP Badge */}
+  <div className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+    <span className="text-sm font-medium text-emerald-700">Verified via Atlassian MCP</span>
+  </div>
+  
+  <div className="flex items-center justify-between">
+  <Badge variant="outline" className="font-mono text-base">
+  {previewData.key}
+  </Badge>
+  <Badge variant={previewData.data.workType === 'enablement' ? 'default' : 'secondary'}>
+  {previewData.data.workType === 'enablement' ? 'Enablement' : 'Activation'}
+  </Badge>
+  </div>
               
               <div>
                 <Label className="text-xs text-muted-foreground">Title</Label>
@@ -926,6 +1007,16 @@ export default function HyperadaptivePrioritizationEngine() {
 
       {/* Sticky Header with Context */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        {/* Demo Mode Banner */}
+        {isDemoMode && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-2">
+            <div className="mx-auto max-w-7xl flex items-center justify-center gap-2">
+              <Database className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium text-amber-700">Simulated SSOT Mode</span>
+              <span className="text-xs text-amber-600">- Data sourced from Mock Atlassian MCP</span>
+            </div>
+          </div>
+        )}
         <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -942,8 +1033,37 @@ export default function HyperadaptivePrioritizationEngine() {
               </div>
             </div>
 
-            {/* Data Mode Toggle */}
+            {/* Demo Mode & Data Mode Controls */}
             <div className="flex items-center gap-4">
+              {/* Demo Mode Toggle */}
+              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                <span className={`text-sm ${isDemoMode ? 'font-medium text-amber-700' : 'text-muted-foreground'}`}>
+                  Demo
+                </span>
+                <Switch
+                  checked={isDemoMode}
+                  onCheckedChange={(checked) => {
+                    setIsDemoMode(checked)
+                    if (!checked) {
+                      setDemoPortfolio([])
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Load Sample Portfolio Button */}
+              {isDemoMode && (
+                <Button
+                  onClick={loadSamplePortfolio}
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-500/50 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
+                >
+                  <Import className="mr-2 h-4 w-4" />
+                  Load Sample Portfolio
+                </Button>
+              )}
+
               {isContextSet && workspaceContext && (
                 <div className="hidden items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 md:flex">
                   <Badge variant="outline" className="text-xs">
@@ -1900,6 +2020,114 @@ export default function HyperadaptivePrioritizationEngine() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Demo Portfolio View */}
+        {isDemoMode && demoPortfolio.length > 0 && (
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Sample Portfolio Analysis</h2>
+                <p className="text-sm text-muted-foreground">4 initiatives with automated archetype classification</p>
+              </div>
+              <Badge className="bg-amber-500/20 text-amber-700 hover:bg-amber-500/30">
+                <Database className="mr-1.5 h-3 w-3" />
+                Simulated SSOT Mode
+              </Badge>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {demoPortfolio.map((item) => (
+                <Card key={item.key} className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">{item.key}</Badge>
+                        <Badge className={`text-white ${item.archetype.color}`}>
+                          {item.archetype.name}
+                        </Badge>
+                        {item.isCriticalPath && (
+                          <Badge className="bg-red-600 text-white">Critical Path</Badge>
+                        )}
+                      </div>
+                      {/* Verified via MCP Badge */}
+                      <div className="flex items-center gap-1 text-xs text-emerald-600">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Verified via MCP</span>
+                      </div>
+                    </div>
+                    <CardTitle className="mt-2 text-base">{item.title}</CardTitle>
+                    <p className="text-xs text-muted-foreground">{item.type}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Score Display */}
+                    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-primary">{item.totalScore}</p>
+                        <p className="text-xs text-muted-foreground">Total Score</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="text-center">
+                          <p className="font-medium">{item.impact}</p>
+                          <p className="text-xs text-muted-foreground">I</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">{item.feasibility}</p>
+                          <p className="text-xs text-muted-foreground">F</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">{item.scalability}</p>
+                          <p className="text-xs text-muted-foreground">S</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Friction Visualization */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Active vs Wait Time</span>
+                        <span className="font-medium">
+                          {Math.round((item.waitTime / (item.activeTime + item.waitTime)) * 100)}% Wait
+                        </span>
+                      </div>
+                      <div className="flex h-3 overflow-hidden rounded-full">
+                        <div 
+                          className="bg-emerald-500"
+                          style={{ width: `${(item.activeTime / (item.activeTime + item.waitTime)) * 100}%` }}
+                        />
+                        <div 
+                          className="bg-red-400"
+                          style={{ width: `${(item.waitTime / (item.activeTime + item.waitTime)) * 100}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Active: {item.activeTime}h</span>
+                        <span>Wait: {item.waitTime}h</span>
+                      </div>
+                    </div>
+
+                    {/* Impact Hint */}
+                    <p className="text-xs text-muted-foreground italic">{item.impactHint}</p>
+
+                    {/* Bonuses */}
+                    <div className="flex flex-wrap gap-2">
+                      {item.hasEnablementBonus && (
+                        <Badge variant="outline" className="border-emerald-500/30 text-xs text-emerald-600">
+                          +2 Enablement Multiplier
+                        </Badge>
+                      )}
+                      {item.linkedTo && item.linkedTo.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          <Link2 className="mr-1 h-3 w-3" />
+                          Links: {item.linkedTo.join(', ')}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         )}
