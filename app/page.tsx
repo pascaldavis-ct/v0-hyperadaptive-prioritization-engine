@@ -193,6 +193,7 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Input state
   const [useCaseDescription, setUseCaseDescription] = useState('')
+  const [prioritizationContext, setPrioritizationContext] = useState('')
   const [workType, setWorkType] = useState<'enablement' | 'activation'>('activation')
   
   // Bottleneck Test
@@ -492,8 +493,25 @@ export default function HyperadaptivePrioritizationEngine() {
                   placeholder="Describe the use case, including the current workflow pain points, desired outcome, and any technical requirements..."
                   value={useCaseDescription}
                   onChange={(e) => setUseCaseDescription(e.target.value)}
-                  className="min-h-32 resize-none"
+                  className="min-h-24 resize-none"
                 />
+
+                {/* Prioritization Context */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Brain className="h-4 w-4 text-muted-foreground" />
+                    Prioritization Context
+                  </Label>
+                  <Textarea
+                    placeholder="Provide additional context to help with prioritization and scoring. Include information like business goals, existing infrastructure, team capabilities, deadlines, dependencies, or any constraints that should influence the analysis..."
+                    value={prioritizationContext}
+                    onChange={(e) => setPrioritizationContext(e.target.value)}
+                    className="min-h-28 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This context helps improve scoring accuracy and AI-powered analysis.
+                  </p>
+                </div>
 
                 {/* Work Type Selection */}
                 <div className="flex items-center gap-4">
