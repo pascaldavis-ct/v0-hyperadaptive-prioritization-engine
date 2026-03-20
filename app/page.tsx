@@ -68,6 +68,16 @@ const mockWorkspaceData: Record<string, {
   enablers: { key: string; status: 'Active' | 'Stalled' | 'Missing' }[]
   constraints: string[]
   }> = {
+  'MKTG-SUPPLY-CHAIN': {
+  name: 'Marketing Supply Chain - Adobe Firefly Migration',
+  description: 'Fortune 100 consumer goods company managing creative asset production across 50+ global markets. Migrating from legacy DAM to Adobe Firefly for AI-generated product imagery. Current bottleneck: 4-day turnaround per regional variant. Goal: Same-day regional adaptation with brand-compliant AI generation.',
+  focus: ['OPEX Reduction', 'Process Efficiency'],
+  enablers: [
+  { key: 'DATA-05', status: 'Active' },
+  { key: 'INFRA-99', status: 'Active' },
+  ],
+  constraints: ['Brand Compliance Review', 'Regional Legal Approval'],
+  },
   'MKTG': {
   name: 'Marketing AI Initiatives',
   description: 'Fortune 500 consumer goods company modernizing marketing operations. Global presence across 40+ markets, legacy MarTech stack being consolidated, aggressive Q4 targets for campaign automation and personalization at scale.',
@@ -100,6 +110,53 @@ const mockWorkspaceData: Record<string, {
   },
   }
 
+// Demo Initiative Data (for dropdown selection)
+const DEMO_INITIATIVES = {
+  'AI-101': {
+    key: 'AI-101',
+    title: 'Regional Variant Engine',
+    displayName: 'AI-101: Regional Variant Engine (Transformer)',
+    bottleneck: 'Manual regional asset adaptation (4 days/market)',
+    readiness: 'Ready' as const,
+    links: ['DATA-05'],
+    type: 'Activation' as const,
+    impact_hint: 'Eliminates primary Wait State: 4-day regional adaptation reduced to same-day. Transforms 50-market rollout velocity.',
+    active_time: 4,
+    wait_time: 92,
+    suggested_scores: { impact: 9, feasibility: 8, scalability: 9 },
+    requiredEnablers: ['DATA-05'],
+    expectedArchetype: 'Transformer',
+  },
+  'DATA-05': {
+    key: 'DATA-05',
+    title: 'Brand-Kit API',
+    displayName: 'DATA-05: Brand-Kit API (The Foundation)',
+    bottleneck: 'Inconsistent brand elements causing rework cycles',
+    readiness: 'Siloed' as const,
+    links: ['AI-101', 'AI-102', 'AI-103', 'AI-104'],
+    type: 'Enablement' as const,
+    impact_hint: 'Strategic Foundation: Unlocks 4 high-impact Activation use cases. Critical enabler for brand consistency at scale.',
+    active_time: 20,
+    wait_time: 10,
+    suggested_scores: { impact: 9, feasibility: 4, scalability: 8 },
+    expectedArchetype: 'The Foundation',
+  },
+  'AI-202': {
+    key: 'AI-202',
+    title: 'Concept Assistant',
+    displayName: 'AI-202: Concept Assistant (The Noise)',
+    bottleneck: 'None (General Creative Inquiry)',
+    readiness: 'Ready' as const,
+    links: [],
+    type: 'Activation' as const,
+    impact_hint: 'Low-impact "Noise": Does not address a primary workflow constraint. Generic use case without clear bottleneck.',
+    active_time: 2,
+    wait_time: 1,
+    suggested_scores: { impact: 2, feasibility: 9, scalability: 4 },
+    expectedArchetype: 'The Noise',
+  },
+}
+
 // Mock Jira data for MCP simulation with Friction Metrics
 const mockJiraData: Record<string, {
   title: string
@@ -114,20 +171,20 @@ const mockJiraData: Record<string, {
   requiredEnablers?: string[]
 }> = {
   'AI-101': {
-    title: 'Automated Content Localization',
-    bottleneck: 'Manual translation (4 days/market)',
+    title: 'Regional Variant Engine',
+    bottleneck: 'Manual regional asset adaptation (4 days/market)',
     readiness: 'Ready',
     links: ['DATA-05'],
     type: 'Activation',
-    impact_hint: 'Eliminates primary localization bottleneck; transforms 50-market rollout.',
+    impact_hint: 'Eliminates primary Wait State: 4-day regional adaptation reduced to same-day.',
     active_time: 4,
     wait_time: 92,
     suggested_scores: { impact: 9, feasibility: 8, scalability: 9 },
     requiredEnablers: ['DATA-05'],
   },
   'DATA-05': {
-    title: 'Global Terminology Database',
-    bottleneck: 'Inconsistent brand voice causing rework',
+    title: 'Brand-Kit API',
+    bottleneck: 'Inconsistent brand elements causing rework cycles',
     readiness: 'Siloed',
     links: ['AI-101', 'AI-102', 'AI-103', 'AI-104'],
     type: 'Enablement',
@@ -137,8 +194,8 @@ const mockJiraData: Record<string, {
     suggested_scores: { impact: 9, feasibility: 4, scalability: 8 },
   },
   'AI-202': {
-    title: 'Internal FAQ Chatbot',
-    bottleneck: 'None (General Admin)',
+    title: 'Concept Assistant',
+    bottleneck: 'None (General Creative Inquiry)',
     readiness: 'Ready',
     links: [],
     type: 'Activation',
@@ -168,6 +225,30 @@ const mockJiraData: Record<string, {
     active_time: 12,
     wait_time: 36,
     suggested_scores: { impact: 6, feasibility: 8, scalability: 7 },
+    requiredEnablers: ['DATA-05'],
+  },
+  'AI-103': {
+    title: 'Campaign Scheduler',
+    bottleneck: 'Manual scheduling coordination',
+    readiness: 'Ready',
+    links: ['DATA-05'],
+    type: 'Activation',
+    impact_hint: 'Automates campaign scheduling across regions.',
+    active_time: 8,
+    wait_time: 24,
+    suggested_scores: { impact: 5, feasibility: 7, scalability: 6 },
+    requiredEnablers: ['DATA-05'],
+  },
+  'AI-104': {
+    title: 'Performance Analyzer',
+    bottleneck: 'Manual reporting aggregation',
+    readiness: 'Ready',
+    links: ['DATA-05'],
+    type: 'Activation',
+    impact_hint: 'Automated campaign performance insights.',
+    active_time: 6,
+    wait_time: 18,
+    suggested_scores: { impact: 5, feasibility: 8, scalability: 7 },
     requiredEnablers: ['DATA-05'],
   },
 }
@@ -393,6 +474,8 @@ export default function HyperadaptivePrioritizationEngine() {
   // Demo Mode State
   const [isDemoMode, setIsDemoMode] = useState(false)
   const [demoPortfolio, setDemoPortfolio] = useState<DemoPortfolioItem[]>([])
+  const [selectedDemoInitiative, setSelectedDemoInitiative] = useState<string>('')
+  const [showLinkedDependencyAlert, setShowLinkedDependencyAlert] = useState(false)
   
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1)
@@ -449,6 +532,137 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Framework visibility
   const [isFrameworkOpen, setIsFrameworkOpen] = useState(false)
+
+  // Handle Demo Mode Toggle - Auto-populate context
+  const handleDemoModeToggle = useCallback((enabled: boolean) => {
+    setIsDemoMode(enabled)
+    
+    if (enabled) {
+      // Auto-populate with MKTG-SUPPLY-CHAIN context
+      const demoContext = mockWorkspaceData['MKTG-SUPPLY-CHAIN']
+      setSpaceKey('MKTG-SUPPLY-CHAIN')
+      setWorkspaceContext(demoContext)
+      setOrganizationalFocus(demoContext.focus[0] || 'OPEX Reduction')
+      setResourceCapacity('medium')
+      setDataMode('mcp')
+      setIsContextSet(true)
+      setCurrentStep(2)
+      
+      toast({
+        title: 'Demo Mode Activated',
+        description: 'Adobe Firefly Migration context loaded automatically.',
+      })
+    } else {
+      // Clear all demo state
+      setSelectedDemoInitiative('')
+      setShowLinkedDependencyAlert(false)
+      setDemoPortfolio([])
+      setSpaceKey('')
+      setWorkspaceContext(null)
+      setOrganizationalFocus('')
+      setIsContextSet(false)
+      setCurrentStep(1)
+      setDataMode('manual')
+      setMcpData(null)
+      setUseCaseDescription('')
+      setPrioritizationContext('')
+      setImpact(5)
+      setFeasibility(5)
+      setScalability(5)
+      setMcpOriginalScores(null)
+      setFoundations([])
+      setClientContext('')
+      
+      toast({
+        title: 'Demo Mode Disabled',
+        description: 'All demo data cleared.',
+      })
+    }
+  }, [toast])
+
+  // Handle Demo Initiative Selection
+  const handleDemoInitiativeSelect = useCallback((initiativeKey: string) => {
+    if (!initiativeKey) {
+      setSelectedDemoInitiative('')
+      return
+    }
+    
+    const initiative = DEMO_INITIATIVES[initiativeKey as keyof typeof DEMO_INITIATIVES]
+    if (!initiative) return
+    
+    setSelectedDemoInitiative(initiativeKey)
+    
+    // Populate all fields
+    setUseCaseDescription(initiative.title)
+    setWorkType(initiative.type.toLowerCase() as 'enablement' | 'activation')
+    setPrioritizationContext(`MCP Impact: ${initiative.impact_hint}`)
+    
+    // Set scores
+    if (initiative.suggested_scores) {
+      setImpact(initiative.suggested_scores.impact)
+      setFeasibility(initiative.suggested_scores.feasibility)
+      setScalability(initiative.suggested_scores.scalability)
+      setMcpOriginalScores(initiative.suggested_scores)
+    }
+    
+    // Set MCP data for scoring calculations
+    const mcpDataFormat = {
+      primaryBottleneck: initiative.bottleneck,
+      dataReadiness: initiative.readiness === 'Ready' ? 'Data available and integrated' : 'Data exists but siloed across systems',
+      linkedDependencies: initiative.links.map(link => ({
+        key: link,
+        type: (mockJiraData[link]?.type?.toLowerCase() as 'enablement' | 'activation') || 'activation'
+      })),
+      description: initiative.title,
+      title: initiative.title,
+      impactHint: initiative.impact_hint,
+      workType: initiative.type.toLowerCase() as 'enablement' | 'activation',
+      activeTime: initiative.active_time,
+      waitTime: initiative.wait_time,
+      suggestedScores: initiative.suggested_scores,
+      requiredEnablers: initiative.requiredEnablers,
+    }
+    setMcpData(mcpDataFormat)
+    setCurrentJiraKey(initiativeKey)
+    
+    // Show linked dependency alert for AI-101
+    if (initiativeKey === 'AI-101' && initiative.links.includes('DATA-05')) {
+      setShowLinkedDependencyAlert(true)
+      // Add DATA-05 to foundations
+      setFoundations([{
+        key: 'DATA-05',
+        title: 'Brand-Kit API',
+        type: 'enablement',
+        linkedTo: 'AI-101',
+      }])
+    } else {
+      setShowLinkedDependencyAlert(false)
+      setFoundations([])
+    }
+    
+    // Move to Step 3 (Synthesis)
+    setCurrentStep(3)
+    
+    toast({
+      title: 'Initiative Loaded',
+      description: `${initiative.displayName} - Ready for analysis`,
+    })
+  }, [toast])
+
+  // Reset Demo Initiative
+  const resetDemoInitiative = useCallback(() => {
+    setSelectedDemoInitiative('')
+    setShowLinkedDependencyAlert(false)
+    setMcpData(null)
+    setUseCaseDescription('')
+    setPrioritizationContext('')
+    setImpact(5)
+    setFeasibility(5)
+    setScalability(5)
+    setMcpOriginalScores(null)
+    setFoundations([])
+    setCurrentStep(2)
+  }, [])
 
   // Load Sample Portfolio for Demo Mode
   const loadSamplePortfolio = useCallback(() => {
@@ -1010,10 +1224,13 @@ export default function HyperadaptivePrioritizationEngine() {
         {/* Demo Mode Banner */}
         {isDemoMode && (
           <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-2">
-            <div className="mx-auto max-w-7xl flex items-center justify-center gap-2">
+            <div className="mx-auto max-w-7xl flex items-center justify-center gap-3">
               <Database className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-700">Simulated SSOT Mode</span>
-              <span className="text-xs text-amber-600">- Data sourced from Mock Atlassian MCP</span>
+              <span className="text-xs text-amber-600 hidden sm:inline">|</span>
+              <span className="text-xs text-amber-600 hidden sm:inline">Adobe Firefly Migration Context</span>
+              <span className="text-xs text-amber-600">|</span>
+              <span className="text-xs text-amber-600">Mock Atlassian MCP</span>
             </div>
           </div>
         )}
@@ -1035,34 +1252,16 @@ export default function HyperadaptivePrioritizationEngine() {
 
             {/* Demo Mode & Data Mode Controls */}
             <div className="flex items-center gap-4">
-              {/* Demo Mode Toggle */}
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-                <span className={`text-sm ${isDemoMode ? 'font-medium text-amber-700' : 'text-muted-foreground'}`}>
-                  Demo
-                </span>
-                <Switch
-                  checked={isDemoMode}
-                  onCheckedChange={(checked) => {
-                    setIsDemoMode(checked)
-                    if (!checked) {
-                      setDemoPortfolio([])
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Load Sample Portfolio Button */}
-              {isDemoMode && (
-                <Button
-                  onClick={loadSamplePortfolio}
-                  variant="outline"
-                  size="sm"
-                  className="border-amber-500/50 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
-                >
-                  <Import className="mr-2 h-4 w-4" />
-                  Load Sample Portfolio
-                </Button>
-              )}
+{/* Demo Mode Toggle */}
+  <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+  <span className={`text-sm ${isDemoMode ? 'font-medium text-amber-700' : 'text-muted-foreground'}`}>
+  Demo
+  </span>
+  <Switch
+  checked={isDemoMode}
+  onCheckedChange={handleDemoModeToggle}
+  />
+  </div>
 
               {isContextSet && workspaceContext && (
                 <div className="hidden items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 md:flex">
@@ -1231,7 +1430,54 @@ export default function HyperadaptivePrioritizationEngine() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                {dataMode === 'mcp' ? (
+                {/* Demo Mode Auto-Context Notice */}
+                {isDemoMode && workspaceContext && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-amber-600" />
+                        <span className="font-medium text-amber-700">Demo Context Auto-Loaded</span>
+                      </div>
+                      <p className="text-sm text-amber-600">
+                        The Adobe Firefly Migration context has been automatically applied. 
+                      </p>
+                    </div>
+
+                    {/* Display loaded context */}
+                    <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-foreground">{workspaceContext.name}</h3>
+                        <Badge className="bg-amber-500/20 text-amber-700">Demo</Badge>
+                      </div>
+
+                      <div className="rounded-md bg-background/50 p-3">
+                        <Label className="text-xs text-muted-foreground">Client Context</Label>
+                        <p className="mt-1 text-sm text-foreground">{workspaceContext.description}</p>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Strategic Focus</Label>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {workspaceContext.focus.map((f) => (
+                            <Badge key={f} variant="secondary">{f}</Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Resource Capacity</Label>
+                        <Badge variant="outline" className="ml-2 capitalize">{resourceCapacity}</Badge>
+                      </div>
+                    </div>
+
+                    <Button onClick={() => setCurrentStep(2)} className="w-full">
+                      Proceed to Initiative Selection
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {dataMode === 'mcp' && !isDemoMode ? (
                   <>
                     <div className="space-y-2">
                       <Label>Load Space Context</Label>
@@ -1450,8 +1696,88 @@ export default function HyperadaptivePrioritizationEngine() {
               </div>
             )}
 
-            {/* MCP Search (if MCP mode) */}
-            {dataMode === 'mcp' && (
+            {/* Demo Mode: Initiative Dropdown */}
+            {isDemoMode && (
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-4 w-4 text-amber-600" />
+                    Select Demo Initiative
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Choose an initiative to see how the IFS framework classifies different use case archetypes.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Select value={selectedDemoInitiative} onValueChange={handleDemoInitiativeSelect}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select an initiative to analyze..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DEMO_INITIATIVES).map(([key, initiative]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex items-center gap-2">
+                            <span>{initiative.displayName}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Linked Dependency Alert (for AI-101) */}
+                  {showLinkedDependencyAlert && selectedDemoInitiative === 'AI-101' && (
+                    <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Link2 className="h-5 w-5 text-blue-600" />
+                        <span className="font-medium text-blue-700">Linked Dependency Found</span>
+                      </div>
+                      <p className="text-sm text-blue-600">
+                        This Activation initiative depends on <strong>DATA-05: Brand-Kit API</strong> (Enablement).
+                        The foundation must be in place for full value realization.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="border-blue-500/50 text-blue-700"
+                        onClick={() => handleDemoInitiativeSelect('DATA-05')}
+                      >
+                        View Foundation: DATA-05
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Enablement Multiplier Alert (for DATA-05) */}
+                  {selectedDemoInitiative === 'DATA-05' && (
+                    <div className="rounded-lg border border-purple-500/50 bg-purple-500/10 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                        <span className="font-medium text-purple-700">Enablement Multiplier: +2 Impact</span>
+                      </div>
+                      <p className="text-sm text-purple-600">
+                        This Enablement initiative unlocks <strong>4 Activation use cases</strong> (AI-101, AI-102, AI-103, AI-104).
+                        The +2 Impact bonus reflects its strategic foundation value.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-101: Regional Variant Engine</Badge>
+                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-102: Smart Email</Badge>
+                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-103: Campaign Scheduler</Badge>
+                        <Badge variant="outline" className="border-purple-500/50 text-purple-700">AI-104: Performance Analyzer</Badge>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDemoInitiative && (
+                    <Button variant="outline" onClick={resetDemoInitiative} className="w-full">
+                      <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
+                      Reset &amp; Select New Initiative
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* MCP Search (if MCP mode and NOT demo mode) */}
+            {dataMode === 'mcp' && !isDemoMode && (
               <Card>
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -1512,7 +1838,8 @@ export default function HyperadaptivePrioritizationEngine() {
               </Card>
             )}
 
-            {/* Initiative Description */}
+            {/* Initiative Description (hidden in demo mode when initiative selected) */}
+            {(!isDemoMode || !selectedDemoInitiative) && (
             <Card className={!isContextSet ? 'opacity-50 pointer-events-none' : ''}>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1699,6 +2026,7 @@ export default function HyperadaptivePrioritizationEngine() {
                 </Button>
               </CardContent>
             </Card>
+            )}
           </div>
         )}
 
