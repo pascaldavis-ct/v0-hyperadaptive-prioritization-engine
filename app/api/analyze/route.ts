@@ -57,17 +57,26 @@ const analysisSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const { clientContext, initiativeTitle, useCaseDescription, organizationalFocus } = await req.json()
+  try {
+    const body = await req.json()
+    const { clientContext, initiativeTitle, useCaseDescription, organizationalFocus } = body
+    
+    console.log('[v0] API /api/analyze called with:', { 
+      clientContext: clientContext?.substring(0, 50), 
+      initiativeTitle,
+      useCaseDescription: useCaseDescription?.substring(0, 50),
+      organizationalFocus 
+    })
 
-  const { output } = await generateText({
-    model: 'openai/gpt-5-mini',
-    output: Output.object({
-      schema: analysisSchema,
-    }),
-    messages: [
-      {
-        role: 'system',
-        content: `You are a Strategic Analyst AI that scores GenAI initiatives using the IFS (Impact, Feasibility, Scalability) framework.
+    const result = await generateText({
+      model: 'openai/gpt-4o-mini',
+      output: Output.object({
+        schema: analysisSchema,
+      }),
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Strategic Analyst AI that scores GenAI initiatives using the IFS (Impact, Feasibility, Scalability) framework.
 
 ## IFS SCORING RUBRIC
 
@@ -99,25 +108,48 @@ Principle: Machine Speed over Human Pace
 3. Look for explicit mentions of data readiness, existing systems, and timelines
 4. Identify automation potential based on the described workflow
 5. Provide concrete, actionable rationale that the stakeholder can use to justify the scores`,
-      },
-      {
-        role: 'user',
-        content: `## CLIENT CONTEXT
-${clientContext}
+        },
+        {
+          role: 'user',
+          content: `## CLIENT CONTEXT
+${clientContext || 'Not provided'}
 
 ## ORGANIZATIONAL FOCUS
-${organizationalFocus}
+${organizationalFocus || 'Operational Efficiency'}
 
 ## INITIATIVE TITLE
-${initiativeTitle}
+${initiativeTitle || 'Untitled Initiative'}
 
 ## INITIATIVE DESCRIPTION
-${useCaseDescription}
+${useCaseDescription || 'No description provided'}
 
 Please analyze this GenAI initiative and provide your IFS assessment with scores from 1-10 and strategic rationale.`,
-      },
-    ],
-  })
+        },
+      ],
+    })
 
-  return Response.json(output)
+    console.log('[v0] API generateText result:', result.output)
+
+    // Return the structured output
+    return Response.json(result.output)
+  } catch (error) {
+    console.error('[v0] API /api/analyze error:', error)
+    return Response.json(
+      { 
+        error: 'Analysis failed', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        // Fallback scores
+        impactScore: 5,
+        feasibilityScore: 5,
+        scalabilityScore: 5,
+        strategicRationale: 'Unable to complete AI analysis. Please review scores manually.',
+        impactRationale: 'Default score - AI analysis unavailable.',
+        feasibilityRationale: 'Default score - AI analysis unavailable.',
+        scalabilityRationale: 'Default score - AI analysis unavailable.',
+        primaryBottleneck: 'Analysis pending',
+        detectedWorkType: 'activation' as const,
+      },
+      { status: 200 } // Return 200 with fallback so frontend doesn't break
+    )
+  }
 }
