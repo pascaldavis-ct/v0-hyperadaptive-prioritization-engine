@@ -518,6 +518,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
   // Input state
+  const [initiativeTitle, setInitiativeTitle] = useState('')
   const [useCaseDescription, setUseCaseDescription] = useState('')
   const [prioritizationContext, setPrioritizationContext] = useState('')
   const [workType, setWorkType] = useState<'enablement' | 'activation'>('activation')
@@ -597,6 +598,7 @@ export default function HyperadaptivePrioritizationEngine() {
 setFoundations([])
       setClientContext('')
       setContextTitle('')
+      setInitiativeTitle('')
       
       toast({
         title: 'Demo Mode Disabled',
@@ -2178,6 +2180,32 @@ setFoundations([])
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+{/* Initiative Title */}
+  <div className="space-y-2">
+    <div className="flex items-center gap-2">
+      <Label>Initiative Title</Label>
+      <div className="group relative">
+        <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+        <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+          <p className="font-medium text-foreground mb-1">Initiative Title</p>
+          <p className="text-muted-foreground">
+            A concise name for this AI initiative. This will be used to identify the initiative in the portfolio view and analysis results.
+          </p>
+          <p className="text-muted-foreground mt-2 italic">
+            Example: "Regional Variant Engine" or "Smart Email Composer"
+          </p>
+        </div>
+      </div>
+    </div>
+    <Input
+      placeholder="e.g., Regional Variant Engine"
+      value={initiativeTitle}
+      onChange={(e) => setInitiativeTitle(e.target.value)}
+      className="w-full"
+      disabled={!isContextSet}
+    />
+  </div>
+
 {/* Context Affinity Meter */}
   {isContextSet && useCaseDescription && (
   <div className="space-y-2">
@@ -2342,10 +2370,10 @@ setFoundations([])
                   </div>
                 )}
 
-                <Button 
-                  onClick={() => setCurrentStep(3)} 
+<Button
+                  onClick={() => setCurrentStep(3)}
                   className="w-full"
-                  disabled={!isContextSet || !useCaseDescription}
+                  disabled={!isContextSet || !initiativeTitle || !useCaseDescription}
                 >
                   Proceed to AI Synthesis
                   <ArrowRight className="ml-2 h-4 w-4" />
