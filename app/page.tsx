@@ -202,8 +202,20 @@ function generateReasoning(
   feasibility: number,
   scalability: number,
   totalScore: number,
-  archetype: Archetype
+  archetype: Archetype,
+  impactHint?: string
 ): string {
+  // Use impact_hint from MCP data if available
+  if (impactHint) {
+    const waitTimeAnalysis = scalability >= 7
+      ? 'Automation potential eliminates wait times between process steps.'
+      : scalability >= 4
+      ? 'Partial automation reduces wait times but oversight required.'
+      : 'Wait times persist due to manual intervention requirements.'
+    
+    return `${impactHint} ${waitTimeAnalysis}`
+  }
+
   const handoffAnalysis = impact >= 7
     ? 'Eliminates multiple handoff points in the current workflow.'
     : impact >= 4
@@ -216,7 +228,7 @@ function generateReasoning(
     ? 'Partial automation reduces wait times but oversight required.'
     : 'Wait times persist due to manual intervention requirements.'
 
-  return `${handoffAnalysis} ${waitTimeAnalysis} Classification: ${archetype.name} (Score: ${totalScore}).`
+  return `${handoffAnalysis} ${waitTimeAnalysis}`
 }
 
 export default function HyperadaptivePrioritizationEngine() {
@@ -274,10 +286,24 @@ export default function HyperadaptivePrioritizationEngine() {
     return getArchetype(totalScore, adjustedImpact, scalability, feasibility, workType)
   }, [totalScore, adjustedImpact, scalability, feasibility, workType])
 
-  // Generate reasoning
+  // Critical Path Detection: If Enablement links to an Activation with score > 80
+  const isCriticalPath = useMemo(() => {
+    if (workType !== 'enablement' || !mcpData) return false
+    // Check if any linked Activation initiatives would have high scores
+    const hasHighScoreActivation = mcpData.linkedDependencies.some(dep => {
+      if (dep.type === 'activation') {
+        // For demo purposes, assume linked Activation tickets have high potential
+        return totalScore > 80
+      }
+      return false
+    })
+    return hasHighScoreActivation && totalScore > 80
+  }, [workType, mcpData, totalScore])
+
+  // Generate reasoning (using impact_hint from MCP data if available)
   const reasoning = useMemo(() => {
-    return generateReasoning(adjustedImpact, feasibility, scalability, totalScore, archetype)
-  }, [adjustedImpact, feasibility, scalability, totalScore, archetype])
+    return generateReasoning(adjustedImpact, feasibility, scalability, totalScore, archetype, mcpData?.impactHint)
+  }, [adjustedImpact, feasibility, scalability, totalScore, archetype, mcpData?.impactHint])
 
   // Handle MCP fetch simulation
   const handleMcpFetch = async () => {
@@ -459,7 +485,7 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Enter Jira Key (e.g., AI-101, AI-200, AI-300)"
+                        placeholder="Enter Jira Key (e.g., AI-101, DATA-05)"
                         value={jiraKey}
                         onChange={(e) => setJiraKey(e.target.value)}
                         className="pl-9"
@@ -518,17 +544,17 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
               </Card>
             )}
 
-            {/* Use Case Description */}
+            {/* AI Initiative Description */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  Use Case Description
+                  AI Initiative Description
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Describe the use case, including the current workflow pain points, desired outcome, and any technical requirements..."
+                  placeholder="Describe the AI initiative, including the current workflow pain points, desired outcome, and any technical requirements..."
                   value={useCaseDescription}
                   onChange={(e) => setUseCaseDescription(e.target.value)}
                   className="min-h-24 resize-none"
@@ -551,9 +577,9 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                   </p>
                 </div>
 
-                {/* Work Type Selection */}
+                {/* Initiative Type Selection */}
                 <div className="flex items-center gap-4">
-                  <Label className="text-sm">Work Type:</Label>
+                  <Label className="text-sm">Initiative Type:</Label>
                   <div className="flex gap-2">
                     <Button
                       variant={workType === 'activation' ? 'default' : 'outline'}
@@ -561,7 +587,7 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                       onClick={() => setWorkType('activation')}
                     >
                       <Zap className="mr-1.5 h-3.5 w-3.5" />
-                      Activation
+                      Activation (Business Use Case)
                     </Button>
                     <Button
                       variant={workType === 'enablement' ? 'default' : 'outline'}
@@ -569,7 +595,7 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                       onClick={() => setWorkType('enablement')}
                     >
                       <Layers className="mr-1.5 h-3.5 w-3.5" />
-                      Enablement
+                      Enablement (Foundation)
                     </Button>
                   </div>
                 </div>
@@ -655,11 +681,18 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                   <div className="mb-4 text-7xl font-bold tabular-nums tracking-tight text-foreground">
                     {totalScore}
                   </div>
-                  <Badge
-                    className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}
-                  >
-                    {archetype.name}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}
+                    >
+                      {archetype.name}
+                    </Badge>
+                    {isCriticalPath && (
+                      <Badge className="bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600">
+                        Critical Path
+                      </Badge>
+                    )}
+                  </div>
                   <p className="mt-4 text-center text-xs text-muted-foreground">
                     Score Range: 1-1000 | Transformer: {'>'} 100
                   </p>
