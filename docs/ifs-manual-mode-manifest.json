@@ -1,0 +1,595 @@
+{
+  "$schema": "IFS Prioritization Engine - Manual Mode Schema",
+  "version": "1.0.0",
+  "mode": "manual",
+  "description": "Structured manifest of input fields and scoring variables for the MANUAL version of the IFS Framework (excludes Demo Mode, MCP integration, and Jira sync features)",
+
+  "inputFields": {
+    "step1_setContext": {
+      "stepLabel": "Step 1: Set Context",
+      "description": "Organizational context fields that frame all prioritization decisions",
+      "fields": {
+        "contextTitle": {
+          "stateVariable": "contextTitle",
+          "type": "string",
+          "inputElement": "Input",
+          "required": false,
+          "label": "Context Title",
+          "placeholder": "e.g., Q4 Digital Transformation Initiative",
+          "description": "A short, descriptive name for this prioritization context",
+          "validation": null
+        },
+        "clientContext": {
+          "stateVariable": "clientContext",
+          "type": "string",
+          "inputElement": "Textarea",
+          "required": true,
+          "label": "Client Context",
+          "placeholder": "Describe the client organization: industry, size, current systems, strategic goals, key stakeholders, and any critical constraints or deadlines...",
+          "description": "Holistic description of the organization's industry, size, current state, and strategic objectives that frames all prioritization decisions",
+          "validation": "Must be non-empty to proceed",
+          "tooltipExample": "Fortune 500 insurance company modernizing claims processing. Legacy mainframe systems, 10,000+ agents, Q4 deadline for digital transformation."
+        },
+        "organizationalFocus": {
+          "stateVariable": "organizationalFocus",
+          "type": "enum",
+          "inputElement": "Select",
+          "required": true,
+          "label": "Strategic Focus",
+          "options": [
+            "OPEX Reduction",
+            "Customer Experience",
+            "Developer Productivity",
+            "Process Efficiency",
+            "Infrastructure"
+          ],
+          "default": "OPEX Reduction",
+          "description": "Primary strategic objective guiding prioritization. Affects Impact scoring through strategic alignment bonus."
+        },
+        "resourceCapacity": {
+          "stateVariable": "resourceCapacity",
+          "type": "enum",
+          "inputElement": "RadioGroup",
+          "required": true,
+          "label": "Resource Capacity",
+          "options": [
+            { "value": "high", "label": "High", "description": "Full team availability" },
+            { "value": "medium", "label": "Medium", "description": "Standard capacity" },
+            { "value": "low", "label": "Low", "description": "Limited bandwidth" }
+          ],
+          "default": "medium",
+          "description": "Available resources for AI initiative delivery. Contextualizes Feasibility assessment."
+        }
+      },
+      "submitAction": {
+        "buttonLabel": "Confirm Context & Proceed",
+        "setsState": { "isContextSet": true, "currentStep": 2 }
+      }
+    },
+
+    "step2_defineInitiative": {
+      "stepLabel": "Step 2: Define Initiative",
+      "description": "Initiative-specific fields for the AI use case being evaluated",
+      "prerequisite": "isContextSet === true",
+      "fields": {
+        "initiativeTitle": {
+          "stateVariable": "initiativeTitle",
+          "type": "string",
+          "inputElement": "Input",
+          "required": true,
+          "label": "Initiative Title",
+          "placeholder": "e.g., Regional Variant Engine",
+          "description": "Concise name for the AI initiative. Used to identify the initiative in portfolio views and analysis results.",
+          "validation": "Must be non-empty to proceed",
+          "tooltipExample": "Regional Variant Engine or Smart Email Composer"
+        },
+        "useCaseDescription": {
+          "stateVariable": "useCaseDescription",
+          "type": "string",
+          "inputElement": "Textarea",
+          "required": true,
+          "label": "AI Initiative Description",
+          "placeholder": "Describe the AI-powered capability, what it automates, and the expected outcome...",
+          "description": "Detailed description of the AI use case, what it automates, and intended outcomes",
+          "validation": "Must be non-empty to proceed",
+          "affectsScoring": "Used for contextAffinity calculation and strategic alignment detection"
+        },
+        "prioritizationContext": {
+          "stateVariable": "prioritizationContext",
+          "type": "string",
+          "inputElement": "Textarea",
+          "required": false,
+          "label": "Prioritization Context",
+          "placeholder": "Additional context for prioritization (dependencies, constraints, stakeholder requirements)...",
+          "description": "Supplementary context specific to this initiative's prioritization. Optional field for additional detail."
+        },
+        "workType": {
+          "stateVariable": "workType",
+          "type": "enum",
+          "inputElement": "Tabs",
+          "required": true,
+          "label": "Work Type",
+          "options": [
+            {
+              "value": "activation",
+              "label": "Activation",
+              "description": "Direct value delivery - customer-facing or revenue-generating AI capability"
+            },
+            {
+              "value": "enablement",
+              "label": "Enablement",
+              "description": "Foundational infrastructure - APIs, data pipelines, platforms that unlock other initiatives"
+            }
+          ],
+          "default": "activation",
+          "description": "Classification of initiative type. Enablement type triggers +2 Impact bonus if it unlocks 2+ Activation use cases.",
+          "affectsScoring": "enablementBonus calculation"
+        },
+        "makes10xFaster": {
+          "stateVariable": "makes10xFaster",
+          "type": "boolean",
+          "inputElement": "Checkbox",
+          "required": false,
+          "label": "10x Bottleneck Test",
+          "default": false,
+          "description": "Check if this initiative eliminates a workflow bottleneck by 10x or more",
+          "affectsScoring": "Displayed as badge in synthesis; influences archetype reasoning"
+        }
+      },
+      "contextAffinityMeter": {
+        "description": "Visual indicator showing alignment between initiative description and organizational context",
+        "calculation": "Keyword matching between useCaseDescription and (clientContext + organizationalFocus)",
+        "display": "Progress bar 0-100%",
+        "threshold": {
+          "low": "< 30% - Weak alignment",
+          "medium": "30-60% - Moderate alignment",
+          "high": "> 60% - Strong alignment"
+        }
+      },
+      "submitAction": {
+        "buttonLabel": "Proceed to AI Synthesis",
+        "validation": "isContextSet && initiativeTitle && useCaseDescription",
+        "setsState": { "currentStep": 3 }
+      }
+    },
+
+    "step3_scoring": {
+      "stepLabel": "Step 3: AI Synthesis",
+      "description": "IFS scoring sliders and final classification",
+      "prerequisite": "currentStep === 3",
+      "fields": {
+        "impact": {
+          "stateVariable": "impact",
+          "type": "number",
+          "inputElement": "Slider",
+          "required": true,
+          "label": "Impact",
+          "icon": "Zap",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 5,
+          "description": "Business value and strategic importance of the initiative",
+          "rubric": {
+            "dimension": "impact",
+            "fullLabel": "Business Impact & Strategic Alignment",
+            "levels": {
+              "1-3": {
+                "label": "Low Impact",
+                "description": "No visible impact on strategic goals or customer experience"
+              },
+              "4-6": {
+                "label": "Moderate Impact",
+                "description": "Partial improvement; incremental value but not transformative"
+              },
+              "7-10": {
+                "label": "High Impact",
+                "description": "Direct value creation; eliminates a top-3 constraint or 10x improvement"
+              }
+            }
+          },
+          "bonuses": [
+            { "name": "enablementBonus", "maxValue": 2, "condition": "workType === 'enablement' && linkedActivationCount >= 2" },
+            { "name": "strategicBonus", "maxValue": 1, "condition": "useCaseDescription aligns with organizationalFocus keywords" }
+          ]
+        },
+        "feasibility": {
+          "stateVariable": "feasibility",
+          "type": "number",
+          "inputElement": "Slider",
+          "required": true,
+          "label": "Feasibility",
+          "icon": "Target",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 5,
+          "description": "Technical and organizational ability to deliver",
+          "rubric": {
+            "dimension": "feasibility",
+            "fullLabel": "Technical & Organizational Feasibility",
+            "levels": {
+              "1-3": {
+                "label": "Significant Blockers",
+                "description": "Multiple blockers (data, infrastructure, skills, compliance)"
+              },
+              "4-6": {
+                "label": "Manageable Constraints",
+                "description": "Solvable constraints with reasonable effort"
+              },
+              "7-10": {
+                "label": "Clear Path",
+                "description": "Clear path; dependencies resolved or minimal"
+              }
+            }
+          },
+          "penalties": [
+            { "name": "feasibilityPenalty", "maxValue": 2, "condition": "Required enabler is Stalled or Missing" }
+          ]
+        },
+        "scalability": {
+          "stateVariable": "scalability",
+          "type": "number",
+          "inputElement": "Slider",
+          "required": true,
+          "label": "Scalability",
+          "icon": "TrendingUp",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 5,
+          "description": "Ability to scale autonomously without human bottlenecks",
+          "rubric": {
+            "dimension": "scalability",
+            "fullLabel": "Autonomous Velocity & Scale Potential",
+            "levels": {
+              "1-3": {
+                "label": "Human-Dependent",
+                "description": "High human-in-loop requirements; cannot scale"
+              },
+              "4-6": {
+                "label": "Semi-Autonomous",
+                "description": "Semi-autonomous; limited scaling potential"
+              },
+              "7-10": {
+                "label": "Fully Autonomous",
+                "description": "Fully autonomous; infinite scaling potential"
+              }
+            }
+          }
+        }
+      },
+      "foundationsManagement": {
+        "stateVariable": "foundations",
+        "type": "array",
+        "itemSchema": {
+          "key": "string (e.g., DATA-05)",
+          "title": "string (e.g., Brand-Kit API)",
+          "type": "enum: enablement | activation",
+          "linkedTo": "string (initiative key this foundation supports)"
+        },
+        "description": "Linked enablement dependencies. Adding a foundation to an Activation initiative triggers enablementBonus for that foundation."
+      }
+    }
+  },
+
+  "scoringEngine": {
+    "description": "All variables and formulas used in the IFS scoring calculation",
+
+    "inputScores": {
+      "impact": { "type": "number", "range": [1, 10], "source": "user input via slider" },
+      "feasibility": { "type": "number", "range": [1, 10], "source": "user input via slider" },
+      "scalability": { "type": "number", "range": [1, 10], "source": "user input via slider" }
+    },
+
+    "derivedVariables": {
+      "enablementBonus": {
+        "stateVariable": "enablementBonus",
+        "type": "number",
+        "formula": "workType === 'enablement' && linkedActivationCount >= 2 ? 2 : 0",
+        "description": "+2 Impact bonus for Enablement initiatives that unlock 2 or more Activation use cases",
+        "range": [0, 2],
+        "appliesTo": "impact"
+      },
+      "hasStrategicBonus": {
+        "stateVariable": "hasStrategicBonus",
+        "type": "boolean",
+        "formula": "useCaseDescription.toLowerCase().includes(organizationalFocus-related keywords)",
+        "description": "+1 Impact bonus if initiative description contains keywords aligned with strategic focus",
+        "bonusValue": 1,
+        "appliesTo": "impact"
+      },
+      "feasibilityPenalty": {
+        "stateVariable": "feasibilityPenalty",
+        "type": "number",
+        "formula": "blockerAlert ? 2 : 0",
+        "description": "-2 Feasibility penalty when a required enabler dependency is Stalled or Missing",
+        "range": [0, 2],
+        "appliesTo": "feasibility"
+      },
+      "adjustedImpact": {
+        "stateVariable": "adjustedImpact",
+        "type": "number",
+        "formula": "Math.min(10, impact + enablementBonus + (hasStrategicBonus ? 1 : 0))",
+        "description": "Final Impact score after applying bonuses, capped at 10",
+        "range": [1, 10]
+      },
+      "adjustedFeasibility": {
+        "stateVariable": "adjustedFeasibility",
+        "type": "number",
+        "formula": "Math.max(1, feasibility - feasibilityPenalty)",
+        "description": "Final Feasibility score after applying blocker penalty, minimum 1",
+        "range": [1, 10]
+      },
+      "totalScore": {
+        "stateVariable": "totalScore",
+        "type": "number",
+        "formula": "adjustedImpact * scalability * adjustedFeasibility",
+        "description": "Final IFS composite score using multiplicative formula (not additive)",
+        "range": [1, 1000],
+        "note": "Multiplicative scoring means all three dimensions must be strong for high scores"
+      },
+      "contextAffinity": {
+        "type": "number",
+        "formula": "keyword matching algorithm comparing useCaseDescription against (clientContext + organizationalFocus)",
+        "description": "Percentage (0-100) indicating alignment between initiative and organizational context",
+        "range": [0, 100]
+      },
+      "certaintyScore": {
+        "type": "number",
+        "formula": "weighted average of data completeness factors",
+        "description": "Confidence level (0-100%) in the archetype classification",
+        "range": [0, 100],
+        "factors": [
+          "Description completeness",
+          "Context alignment",
+          "Override confidence (reduced if scores were manually overridden)"
+        ]
+      }
+    },
+
+    "overrideTracking": {
+      "stateVariable": "overrideHistory",
+      "type": "array",
+      "itemSchema": {
+        "field": "string (impact | feasibility | scalability)",
+        "previousValue": "number",
+        "newValue": "number",
+        "reason": "string (user-provided justification)"
+      },
+      "description": "Audit log of all manual score adjustments with justifications"
+    }
+  },
+
+  "archetypeClassification": {
+    "description": "Strategic archetype classification based on IFS scores. Evaluated in priority order - first match wins.",
+
+    "archetypes": [
+      {
+        "name": "Transformer",
+        "priority": 1,
+        "condition": {
+          "rule": "totalScore > 100",
+          "pseudocode": "adjustedImpact * scalability * adjustedFeasibility > 100"
+        },
+        "action": "Immediate Delivery",
+        "color": "bg-blue-500",
+        "icon": "Rocket",
+        "description": "High impact, feasibility, and scalability. Ship immediately."
+      },
+      {
+        "name": "The Foundation",
+        "priority": 2,
+        "condition": {
+          "rule": "impact >= 7 && scalability >= 7 && feasibility <= 4 && workType === 'enablement'",
+          "pseudocode": "High strategic value but blocked; requires infrastructure investment"
+        },
+        "action": "Fund Infrastructure (Enablement)",
+        "color": "bg-purple-500",
+        "icon": "Layers",
+        "description": "Critical enablement work. Invest in infrastructure first."
+      },
+      {
+        "name": "Quick Win",
+        "priority": 3,
+        "condition": {
+          "rule": "feasibility >= 7 && impact >= 4 && impact <= 7",
+          "pseudocode": "Easy to deliver with moderate business value"
+        },
+        "action": "Build Momentum",
+        "color": "bg-green-500",
+        "icon": "CheckCircle2",
+        "description": "High feasibility with moderate impact. Build momentum."
+      },
+      {
+        "name": "The Experiment",
+        "priority": 4,
+        "condition": {
+          "rule": "totalScore >= 40 && totalScore <= 74",
+          "pseudocode": "Middle-range score requiring validation"
+        },
+        "action": "Time-box Prompting Party",
+        "color": "bg-yellow-500",
+        "icon": "Beaker",
+        "description": "Moderate potential. Time-box exploration to validate."
+      },
+      {
+        "name": "Money Pit",
+        "priority": 5,
+        "condition": {
+          "rule": "scalability <= 3 && feasibility >= 7",
+          "pseudocode": "Easy to build but cannot scale autonomously"
+        },
+        "action": "Defer - Manual/Non-Scalable",
+        "color": "bg-orange-500",
+        "icon": "AlertTriangle",
+        "description": "Easy to build but won't scale. Defer or redesign."
+      },
+      {
+        "name": "The Noise",
+        "priority": 6,
+        "condition": {
+          "rule": "totalScore < 20",
+          "pseudocode": "Very low composite score"
+        },
+        "action": "Discard",
+        "color": "bg-gray-500",
+        "icon": "X",
+        "description": "Low value across all dimensions. Discard."
+      },
+      {
+        "name": "Under Review",
+        "priority": 7,
+        "condition": {
+          "rule": "default fallback - no other condition matched",
+          "pseudocode": "Scores don't fit any established pattern"
+        },
+        "action": "Further Analysis Needed",
+        "color": "bg-slate-500",
+        "icon": "HelpCircle",
+        "description": "Requires additional discovery to classify."
+      }
+    ],
+
+    "evaluationOrder": [
+      "1. Transformer (totalScore > 100) - checked first as highest priority",
+      "2. The Foundation (enablement with high I/S, low F)",
+      "3. Quick Win (high F, moderate I)",
+      "4. The Experiment (40-74 score range)",
+      "5. Money Pit (low S, high F - scaling problem)",
+      "6. The Noise (totalScore < 20)",
+      "7. Under Review (fallback for unclassified)"
+    ]
+  },
+
+  "stateManagement": {
+    "description": "All React state variables used in Manual Mode",
+
+    "workflowState": {
+      "currentStep": {
+        "type": "number",
+        "values": [1, 2, 3],
+        "description": "Current wizard step"
+      },
+      "dataMode": {
+        "type": "enum",
+        "values": ["manual", "mcp"],
+        "default": "manual",
+        "description": "Data input mode - 'manual' for this manifest"
+      }
+    },
+
+    "contextState": {
+      "isContextSet": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether Step 1 context has been confirmed"
+      },
+      "contextTitle": {
+        "type": "string",
+        "default": "",
+        "description": "User-defined name for the prioritization context"
+      },
+      "clientContext": {
+        "type": "string",
+        "default": "",
+        "description": "Free-text organization description"
+      },
+      "organizationalFocus": {
+        "type": "string",
+        "default": "OPEX Reduction",
+        "description": "Selected strategic focus area"
+      },
+      "resourceCapacity": {
+        "type": "enum",
+        "values": ["high", "medium", "low"],
+        "default": "medium",
+        "description": "Resource availability level"
+      }
+    },
+
+    "initiativeState": {
+      "initiativeTitle": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the AI initiative"
+      },
+      "useCaseDescription": {
+        "type": "string",
+        "default": "",
+        "description": "Detailed initiative description"
+      },
+      "prioritizationContext": {
+        "type": "string",
+        "default": "",
+        "description": "Additional prioritization context"
+      },
+      "workType": {
+        "type": "enum",
+        "values": ["activation", "enablement"],
+        "default": "activation",
+        "description": "Initiative type classification"
+      },
+      "makes10xFaster": {
+        "type": "boolean",
+        "default": false,
+        "description": "10x bottleneck elimination flag"
+      }
+    },
+
+    "scoringState": {
+      "impact": {
+        "type": "number",
+        "range": [1, 10],
+        "default": 5,
+        "description": "Impact score"
+      },
+      "feasibility": {
+        "type": "number",
+        "range": [1, 10],
+        "default": 5,
+        "description": "Feasibility score"
+      },
+      "scalability": {
+        "type": "number",
+        "range": [1, 10],
+        "default": 5,
+        "description": "Scalability score"
+      }
+    },
+
+    "foundationsState": {
+      "foundations": {
+        "type": "array",
+        "itemType": "Foundation object",
+        "default": [],
+        "description": "Array of linked enablement dependencies"
+      }
+    },
+
+    "overrideState": {
+      "overrideHistory": {
+        "type": "array",
+        "itemType": "Override entry object",
+        "default": [],
+        "description": "Audit log of score overrides"
+      }
+    }
+  },
+
+  "validationRules": {
+    "step1ToStep2": {
+      "required": ["clientContext", "organizationalFocus", "resourceCapacity"],
+      "action": "setIsContextSet(true), setCurrentStep(2)"
+    },
+    "step2ToStep3": {
+      "required": ["isContextSet", "initiativeTitle", "useCaseDescription"],
+      "action": "setCurrentStep(3)"
+    },
+    "scoring": {
+      "range": "All scores must be integers 1-10",
+      "bonusCap": "adjustedImpact capped at 10",
+      "penaltyFloor": "adjustedFeasibility minimum 1"
+    }
+  }
+}
