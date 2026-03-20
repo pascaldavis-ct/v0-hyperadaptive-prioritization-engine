@@ -327,39 +327,42 @@ function generateReasoning(
     reasoning += 'STRATEGIC ALIGNMENT: Initiative aligns with organizational OPEX reduction focus. '
   }
   
-  // Blocker Alert
+  // Blocker Alert (Readiness issue)
   if (hasBlocker) {
-    reasoning += 'BLOCKER ALERT: Required enabler is Stalled or Missing - Feasibility impacted. '
+    reasoning += 'READINESS ALERT: Required enabler is Stalled or Missing - Foundational Readiness impacted. '
   }
   
-  // Friction insight
+  // Friction insight (Wait States)
   if (frictionRatio !== undefined && frictionRatio > 0.6) {
-    reasoning += 'HIGH HYPERADAPTIVE POTENTIAL: Significant wait time indicates automation opportunity. '
+    reasoning += 'HIGH WAIT STATE RATIO: Significant wait time indicates systemic flow improvement opportunity. '
   }
 
   if (impactHint) {
-    const waitTimeAnalysis = scalability >= 7
-      ? 'Automation potential eliminates wait times.'
+    // Velocity analysis
+    const velocityAnalysis = scalability >= 7
+      ? 'High Autonomous Velocity: Can execute at machine speed without human bottlenecks.'
       : scalability >= 4
-      ? 'Partial automation reduces wait times.'
-      : 'Manual intervention requirements persist.'
+      ? 'Moderate Velocity: Hybrid execution with human-in-the-loop for some outputs.'
+      : 'Low Velocity: Manual prompting required; high variable cost per execution.'
     
-    return reasoning + `${impactHint} ${waitTimeAnalysis}`
+    return reasoning + `${impactHint} ${velocityAnalysis}`
   }
 
-  const handoffAnalysis = impact >= 7
-    ? 'Eliminates multiple handoff points.'
+  // Systemic Flow analysis
+  const flowAnalysis = impact >= 7
+    ? 'Systemic Flow: Resolves primary Wait State constraint.'
     : impact >= 4
-    ? 'Reduces some handoffs.'
-    : 'Minimal handoff impact.'
+    ? 'Partial Flow: Reduces handoffs in secondary bottleneck.'
+    : 'Localized: Task speed-up without systemic flow impact.'
 
-  const waitTimeAnalysis = scalability >= 7
-    ? 'Full automation potential.'
+  // Velocity analysis
+  const velocityAnalysis = scalability >= 7
+    ? 'High Autonomous Velocity.'
     : scalability >= 4
-    ? 'Partial automation possible.'
-    : 'Manual oversight required.'
+    ? 'Moderate Velocity with human oversight.'
+    : 'Low Velocity; manual execution required.'
 
-  return reasoning + `${handoffAnalysis} ${waitTimeAnalysis}`
+  return reasoning + `${flowAnalysis} ${velocityAnalysis}`
 }
 
 export default function HyperadaptivePrioritizationEngine() {
@@ -1442,7 +1445,7 @@ export default function HyperadaptivePrioritizationEngine() {
                   <ScoreSlider
                     icon={<Zap className="h-4 w-4" />}
                     label="Impact"
-                    description="10 = Eliminates primary bottleneck"
+                    dimension="impact"
                     value={impact}
                     onChange={(v) => handleScoreChange('impact', v)}
                     bonus={enablementBonus + (hasStrategicBonus ? 1 : 0)}
@@ -1451,7 +1454,7 @@ export default function HyperadaptivePrioritizationEngine() {
                   <ScoreSlider
                     icon={<Target className="h-4 w-4" />}
                     label="Feasibility"
-                    description="10 = Ship in 1-2 weeks"
+                    dimension="feasibility"
                     value={feasibility}
                     onChange={(v) => handleScoreChange('feasibility', v)}
                     penalty={feasibilityPenalty}
@@ -1460,7 +1463,7 @@ export default function HyperadaptivePrioritizationEngine() {
                   <ScoreSlider
                     icon={<TrendingUp className="h-4 w-4" />}
                     label="Scalability"
-                    description="10 = Unlimited automation"
+                    dimension="scalability"
                     value={scalability}
                     onChange={(v) => handleScoreChange('scalability', v)}
                     isOverridden={mcpOriginalScores && mcpOriginalScores.scalability !== scalability}
@@ -1731,10 +1734,44 @@ export default function HyperadaptivePrioritizationEngine() {
   )
 }
 
+// IFS Framework Descriptors
+const IFS_RUBRICS = {
+  impact: {
+    fullLabel: 'Impact (Systemic Flow)',
+    question: 'Does this eliminate the primary "Wait State" blocking the end-to-end workflow?',
+    principle: 'Focus on Flow, not just Tasks',
+    rubric: [
+      { range: '1-3', text: 'Localized task speed-up; doesn\'t affect overall cycle time.' },
+      { range: '4-7', text: 'Reduces handoffs/rework in a secondary bottleneck.' },
+      { range: '8-10', text: 'Resolves a primary constraint; 10x faster step = 10x faster process.' },
+    ],
+  },
+  feasibility: {
+    fullLabel: 'Feasibility (Foundational Readiness)',
+    question: 'Are the data, APIs, and "Human Systems" ready to support this today?',
+    principle: 'Readiness over Ambition',
+    rubric: [
+      { range: '1-3', text: 'Requires significant "Enablement" (data cleanup/infrastructure).' },
+      { range: '4-7', text: 'Minor gaps; team is skilled but assets need refinement.' },
+      { range: '8-10', text: 'All assets ready (SSOT verified); high "Organizational Pull" to adopt.' },
+    ],
+  },
+  scalability: {
+    fullLabel: 'Scalability (Autonomous Velocity)',
+    question: 'Can this execute 10,000+ times without a new human bottleneck?',
+    principle: 'Machine Speed over Human Pace',
+    rubric: [
+      { range: '1-3', text: 'Manual/one-off prompting; high variable cost per execution.' },
+      { range: '4-7', text: 'Hybrid; human-in-the-loop required for >30% of outputs.' },
+      { range: '8-10', text: 'Fully automated via API; runs at machine speed with sustainable economics.' },
+    ],
+  },
+}
+
 function ScoreSlider({
   icon,
   label,
-  description,
+  dimension,
   value,
   onChange,
   bonus = 0,
@@ -1743,7 +1780,7 @@ function ScoreSlider({
 }: {
   icon: React.ReactNode
   label: string
-  description: string
+  dimension: 'impact' | 'feasibility' | 'scalability'
   value: number
   onChange: (value: number) => void
   bonus?: number
@@ -1751,13 +1788,18 @@ function ScoreSlider({
   isOverridden?: boolean
 }) {
   const displayValue = Math.min(10, Math.max(1, value + bonus - penalty))
+  const rubric = IFS_RUBRICS[dimension]
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Determine which rubric range applies
+  const currentRubric = value <= 3 ? rubric.rubric[0] : value <= 7 ? rubric.rubric[1] : rubric.rubric[2]
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">{icon}</span>
-          <span className="font-medium text-foreground">{label}</span>
+          <span className="font-medium text-foreground">{rubric.fullLabel}</span>
           {bonus > 0 && (
             <Badge variant="outline" className="border-emerald-500/30 text-xs text-emerald-600">
               +{bonus}
@@ -1773,11 +1815,37 @@ function ScoreSlider({
               Overridden
             </Badge>
           )}
+          {/* Principle Check Tooltip */}
+          <div className="relative">
+            <button
+              type="button"
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              aria-label="Principle Check"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+            {showTooltip && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-md border bg-popover p-3 text-xs shadow-lg">
+                <p className="mb-2 font-semibold text-foreground">Principle: {rubric.principle}</p>
+                <div className="space-y-1.5 text-muted-foreground">
+                  {rubric.rubric.map((r) => (
+                    <p key={r.range}>
+                      <span className="font-medium text-foreground">({r.range}):</span> {r.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
           {displayValue}
         </span>
       </div>
+      {/* Deep Question */}
+      <p className="text-xs italic text-muted-foreground/80">{rubric.question}</p>
       <Slider
         value={[value]}
         onValueChange={(v) => onChange(v[0])}
@@ -1786,7 +1854,10 @@ function ScoreSlider({
         step={1}
         className="w-full"
       />
-      <p className="text-xs text-muted-foreground">{description}</p>
+      {/* Dynamic Rubric Guidance */}
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">({currentRubric.range}):</span> {currentRubric.text}
+      </p>
     </div>
   )
 }
