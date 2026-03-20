@@ -63,38 +63,42 @@ import {
 // Mock Workspace Metadata for Space Context
 const mockWorkspaceData: Record<string, {
   name: string
+  description: string
   focus: string[]
   enablers: { key: string; status: 'Active' | 'Stalled' | 'Missing' }[]
   constraints: string[]
-}> = {
+  }> = {
   'MKTG': {
-    name: 'Marketing AI Initiatives',
-    focus: ['OPEX Reduction', 'Customer Experience'],
-    enablers: [
-      { key: 'DATA-05', status: 'Active' },
-      { key: 'INFRA-99', status: 'Stalled' },
-    ],
-    constraints: ['Q4 Budget Freeze', 'Limited ML Expertise'],
+  name: 'Marketing AI Initiatives',
+  description: 'Fortune 500 consumer goods company modernizing marketing operations. Global presence across 40+ markets, legacy MarTech stack being consolidated, aggressive Q4 targets for campaign automation and personalization at scale.',
+  focus: ['OPEX Reduction', 'Customer Experience'],
+  enablers: [
+  { key: 'DATA-05', status: 'Active' },
+  { key: 'INFRA-99', status: 'Stalled' },
+  ],
+  constraints: ['Q4 Budget Freeze', 'Limited ML Expertise'],
   },
   'ENG': {
-    name: 'Engineering Platform',
-    focus: ['Developer Productivity', 'Infrastructure'],
-    enablers: [
-      { key: 'INFRA-99', status: 'Active' },
-      { key: 'DATA-05', status: 'Missing' },
+  name: 'Engineering Platform',
+  description: 'Mid-size SaaS company with 200+ engineers. Kubernetes-native infrastructure, strong DevOps culture, looking to reduce SDLC cycle time by 40% through AI-assisted development and automated testing.',
+  focus: ['Developer Productivity', 'Infrastructure'],
+  enablers: [
+  { key: 'INFRA-99', status: 'Active' },
+  { key: 'DATA-05', status: 'Missing' },
     ],
     constraints: ['Security Review Required'],
   },
-  'OPS': {
-    name: 'Operations Automation',
-    focus: ['OPEX Reduction', 'Process Efficiency'],
-    enablers: [
-      { key: 'DATA-05', status: 'Active' },
-      { key: 'INFRA-99', status: 'Active' },
-    ],
-    constraints: ['Legacy System Dependencies'],
+'OPS': {
+  name: 'Operations Automation',
+  description: 'Regional insurance carrier with 5,000 employees. Manual claims processing creating 8-hour backlogs, mainframe-based policy system, regulatory compliance requirements (SOC2, HIPAA). Digital transformation mandate from new CTO.',
+  focus: ['OPEX Reduction', 'Process Efficiency'],
+  enablers: [
+  { key: 'DATA-05', status: 'Active' },
+  { key: 'INFRA-99', status: 'Active' },
+  ],
+  constraints: ['Legacy System Dependencies'],
   },
-}
+  }
 
 // Mock Jira data for MCP simulation with Friction Metrics
 const mockJiraData: Record<string, {
@@ -376,6 +380,7 @@ export default function HyperadaptivePrioritizationEngine() {
   
   // Context State (Step 1)
   const [isContextSet, setIsContextSet] = useState(false)
+  const [clientContext, setClientContext] = useState('')
   const [organizationalFocus, setOrganizationalFocus] = useState<string>('')
   const [resourceCapacity, setResourceCapacity] = useState<'high' | 'medium' | 'low'>('medium')
   const [spaceKey, setSpaceKey] = useState('')
@@ -1136,6 +1141,12 @@ export default function HyperadaptivePrioritizationEngine() {
                           <h3 className="font-medium text-foreground">{workspaceContext.name}</h3>
                           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                         </div>
+
+                        {/* Project Description */}
+                        <div className="rounded-md bg-background/50 p-3">
+                          <Label className="text-xs text-muted-foreground">Client Context</Label>
+                          <p className="mt-1 text-sm text-foreground">{workspaceContext.description}</p>
+                        </div>
                         
                         <div>
                           <Label className="text-xs text-muted-foreground">Strategic Focus</Label>
@@ -1185,6 +1196,34 @@ export default function HyperadaptivePrioritizationEngine() {
                   </>
                 ) : (
                   <>
+                    {/* Client Context - Free text description */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label>Client Context</Label>
+                        <div className="group relative">
+                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                          <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                            <p className="font-medium text-foreground mb-1">Client Context</p>
+                            <p className="text-muted-foreground">
+                              Describe the organization's industry, size, current state, and strategic objectives. This holistic context frames all initiative prioritization decisions.
+                            </p>
+                            <p className="text-muted-foreground mt-2 italic">
+                              Example: "Fortune 500 insurance company modernizing claims processing. Legacy mainframe systems, 10,000+ agents, Q4 deadline for digital transformation."
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Textarea
+                        placeholder="Describe the client organization: industry, size, current systems, strategic goals, key stakeholders, and any critical constraints or deadlines..."
+                        value={clientContext}
+                        onChange={(e) => setClientContext(e.target.value)}
+                        className="min-h-24 resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This context will be used to evaluate how well each initiative aligns with organizational needs.
+                      </p>
+                    </div>
+
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Label>Organizational Focus</Label>
@@ -1268,16 +1307,23 @@ export default function HyperadaptivePrioritizationEngine() {
           <div className="mx-auto max-w-3xl space-y-6">
             {/* Context Banner */}
             {isContextSet && (
-              <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  <div>
-                    <span className="font-medium text-foreground">Context Active:</span>
-                    <span className="ml-2 text-muted-foreground">
-                      {workspaceContext?.name || organizationalFocus} | {resourceCapacity} capacity
-                    </span>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <div>
+                      <span className="font-medium text-foreground">Context Active:</span>
+                      <span className="ml-2 text-muted-foreground">
+                        {workspaceContext?.name || organizationalFocus} | {resourceCapacity} capacity
+                      </span>
+                    </div>
                   </div>
                 </div>
+                {(clientContext || workspaceContext?.description) && (
+                  <p className="text-xs text-muted-foreground pl-8 line-clamp-2">
+                    {workspaceContext?.description || clientContext}
+                  </p>
+                )}
                 <Button variant="ghost" size="sm" onClick={resetContext}>
                   Change
                 </Button>
