@@ -480,6 +480,14 @@ export default function HyperadaptivePrioritizationEngine() {
   const [selectedDemoInitiative, setSelectedDemoInitiative] = useState<string>('')
   const [showLinkedDependencyAlert, setShowLinkedDependencyAlert] = useState(false)
   
+  // Human Override Mode
+  const [isHumanOverrideActive, setIsHumanOverrideActive] = useState(false)
+  const [humanOverrideDisclaimer, setHumanOverrideDisclaimer] = useState('')
+  
+  // Jira Sync State
+  const [jiraSyncStatus, setJiraSyncStatus] = useState<'pending' | 'syncing' | 'synced'>('pending')
+  const [isSyncingToJira, setIsSyncingToJira] = useState(false)
+  
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1)
   
@@ -668,13 +676,16 @@ export default function HyperadaptivePrioritizationEngine() {
   const runDemoAnalysis = useCallback(() => {
     if (!selectedDemoInitiative) return
     setCurrentStep(3)
+    setJiraSyncStatus('pending')
+    setIsHumanOverrideActive(false)
+    setHumanOverrideDisclaimer('')
     toast({
       title: 'Analysis Complete',
       description: 'AI Synthesis results ready.',
     })
   }, [selectedDemoInitiative, toast])
 
-  // Reset Demo Initiative
+// Reset Demo Initiative
   const resetDemoInitiative = useCallback(() => {
     setSelectedDemoInitiative('')
     setShowLinkedDependencyAlert(false)
@@ -687,6 +698,11 @@ export default function HyperadaptivePrioritizationEngine() {
     setMcpOriginalScores(null)
     setFoundations([])
     setCurrentStep(2)
+    // Reset human override and sync state
+    setIsHumanOverrideActive(false)
+    setHumanOverrideDisclaimer('')
+    setJiraSyncStatus('pending')
+    setIsSyncingToJira(false)
   }, [])
 
   // Load Sample Portfolio for Demo Mode
@@ -856,11 +872,28 @@ export default function HyperadaptivePrioritizationEngine() {
     return score
   }, [dataMode, isContextSet, workspaceContext])
 
-  // Get archetype
+// Get archetype
   const archetype = useMemo(() => {
     return getArchetype(totalScore, adjustedImpact, scalability, adjustedFeasibility, workType)
   }, [totalScore, adjustedImpact, scalability, adjustedFeasibility, workType])
 
+  // Sync to Jira (Demo Mode simulation)
+  const syncToJira = useCallback(async () => {
+    setIsSyncingToJira(true)
+    setJiraSyncStatus('syncing')
+    
+    // Simulate MCP sync delay
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    setIsSyncingToJira(false)
+    setJiraSyncStatus('synced')
+    
+    toast({
+      title: `Jira Issue ${selectedDemoInitiative} Updated`,
+      description: `Priority set to ${archetype.name} | IFS Score ${totalScore} synced.`,
+    })
+  }, [selectedDemoInitiative, archetype, totalScore, toast])
+  
   // Critical Path Detection
   const isCriticalPath = useMemo(() => {
     if (workType !== 'enablement' || !mcpData) return false
@@ -905,6 +938,16 @@ export default function HyperadaptivePrioritizationEngine() {
     else if (field === 'feasibility') setFeasibility(newValue)
     else setScalability(newValue)
   }, [mcpOriginalScores, mcpData, impact, feasibility, scalability])
+
+  // Handle Human Override score change
+  const handleHumanOverrideScoreChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
+    if (isHumanOverrideActive) {
+      setHumanOverrideDisclaimer('Score adjusted by human reviewer. Recalculating Systemic Impact...')
+      // Reset Jira sync status when scores change
+      setJiraSyncStatus('pending')
+    }
+    handleScoreChange(field, newValue)
+  }, [isHumanOverrideActive, handleScoreChange])
 
   // Confirm override
   const confirmOverride = () => {
@@ -1806,23 +1849,111 @@ export default function HyperadaptivePrioritizationEngine() {
                     </SelectContent>
                   </Select>
 
-                  {/* Selected Initiative Details */}
+                  {/* Jira Source Data Card - Ground Truth */}
+                  {selectedDemoInitiative && mcpData && (
+                    <Card className="border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-indigo-500/5">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Database className="h-4 w-4 text-blue-600" />
+                            Source Data from Jira
+                          </CardTitle>
+                          <div className="flex items-center gap-1.5 text-emerald-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs font-medium">Verified via Atlassian MCP</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Ground truth data that the AI will process for scoring
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Issue Key & Title */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Issue Key</Label>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono text-sm px-3 py-1">{selectedDemoInitiative}</Badge>
+                              <Badge className={workType === 'enablement' ? 'bg-purple-500' : 'bg-blue-500'}>
+                                {workType === 'enablement' ? 'Enablement' : 'Activation'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Assignee</Label>
+                            <p className="text-sm font-medium">AI Prioritization Engine</p>
+                          </div>
+                        </div>
+
+                        {/* Original Description */}
+                        <div className="space-y-1">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Original Description</Label>
+                          <div className="rounded-lg bg-background/80 border border-border p-3">
+                            <p className="text-sm text-foreground">{mcpData.title}</p>
+                            <p className="mt-2 text-xs text-muted-foreground italic">{mcpData.impactHint}</p>
+                          </div>
+                        </div>
+
+                        {/* Friction Metrics - Ground Truth */}
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Workflow Friction (Raw Metrics)</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-center">
+                              <p className="text-2xl font-bold text-emerald-600">{mcpData.activeTime}h</p>
+                              <p className="text-xs text-emerald-600 font-medium">Active Work</p>
+                            </div>
+                            <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
+                              <p className="text-2xl font-bold text-red-600">{mcpData.waitTime}h</p>
+                              <p className="text-xs text-red-600 font-medium">Systemic Roadblock</p>
+                            </div>
+                          </div>
+                          <div className="flex h-6 overflow-hidden rounded-lg border">
+                            <div 
+                              className="bg-emerald-500 transition-all duration-500"
+                              style={{ width: `${(mcpData.activeTime / (mcpData.activeTime + mcpData.waitTime)) * 100}%` }}
+                            />
+                            <div 
+                              className="bg-red-500 transition-all duration-500"
+                              style={{ width: `${(mcpData.waitTime / (mcpData.activeTime + mcpData.waitTime)) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Primary Bottleneck */}
+                        <div className="space-y-1">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Primary Bottleneck</Label>
+                          <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 border border-orange-500/30 p-3">
+                            <AlertTriangle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                            <p className="text-sm font-medium text-orange-700">{mcpData.primaryBottleneck}</p>
+                          </div>
+                        </div>
+
+                        {/* Data Readiness */}
+                        <div className="space-y-1">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Data Readiness</Label>
+                          <Badge variant="outline" className={
+                            mcpData.dataReadiness.includes('available') ? 'border-emerald-500/50 text-emerald-600' :
+                            mcpData.dataReadiness.includes('siloed') ? 'border-orange-500/50 text-orange-600' :
+                            'border-gray-500/50'
+                          }>
+                            {mcpData.dataReadiness}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* AI Suggested Scores Preview */}
                   {selectedDemoInitiative && mcpData && (
                     <div className="space-y-5 rounded-xl border border-border bg-card p-5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
                       {/* Initiative Header */}
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="font-mono">{selectedDemoInitiative}</Badge>
-                            <Badge variant={workType === 'enablement' ? 'default' : 'secondary'}>
-                              {workType === 'enablement' ? 'Enablement' : 'Activation'}
-                            </Badge>
+                            <Brain className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">AI-Suggested IFS Scores</span>
                           </div>
-                          <h4 className="font-semibold text-lg">{mcpData.title}</h4>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-emerald-600">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span className="text-xs font-medium">Verified via MCP</span>
+                          <p className="text-xs text-muted-foreground">Based on source data analysis</p>
                         </div>
                       </div>
 
@@ -2198,65 +2329,284 @@ export default function HyperadaptivePrioritizationEngine() {
           </div>
         )}
 
-        {/* Step 3: AI Synthesis & Scoring */}
+        {/* Step 3: AI Synthesis & Scoring - Two Column Layout */}
         {currentStep === 3 && (
-          <div className="grid gap-8 lg:grid-cols-3">
-            {/* Left Column - Scoring */}
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* LEFT COLUMN - AI Opinion (Static) */}
             <div className="space-y-6">
-              {/* Context Summary */}
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Settings2 className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Active Context</span>
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500">
+                  <Brain className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">AI Opinion</h2>
+                  <p className="text-xs text-muted-foreground">Static summary and original Jira data</p>
+                </div>
+              </div>
+
+              {/* Original Jira Source Data */}
+              {isDemoMode && mcpData && (
+                <Card className="border-blue-500/30 bg-blue-500/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Database className="h-4 w-4 text-blue-600" />
+                      Source Data from Jira
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Issue Key</Label>
+                        <Badge variant="outline" className="font-mono">{selectedDemoInitiative || currentJiraKey}</Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Type</Label>
+                        <Badge className={workType === 'enablement' ? 'bg-purple-500' : 'bg-blue-500'}>
+                          {workType === 'enablement' ? 'Enablement' : 'Activation'}
+                        </Badge>
+                      </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setCurrentStep(1)}>
-                      Edit
-                    </Button>
+                    <div className="space-y-1">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Description</Label>
+                      <p className="text-sm bg-background/50 rounded-lg p-3 border">{mcpData.title}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bottleneck</Label>
+                      <div className="flex items-center gap-2 text-sm text-orange-600">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {mcpData.primaryBottleneck}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
+                        <p className="text-xl font-bold text-emerald-600">{mcpData.activeTime}h</p>
+                        <p className="text-xs text-emerald-600">Active Work</p>
+                      </div>
+                      <div className="rounded-lg bg-red-500/10 p-3 text-center">
+                        <p className="text-xl font-bold text-red-600">{mcpData.waitTime}h</p>
+                        <p className="text-xs text-red-600">Systemic Roadblock</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* AI Reasoning Summary */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                    AI Reasoning Rubric
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-sm leading-relaxed text-foreground">{reasoning}</p>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {workspaceContext?.name || organizationalFocus} | {resourceCapacity} capacity
+                  
+                  {/* Contextual Tooltip Terms */}
+                  <div className="flex flex-wrap gap-2">
+                    {aggregatedFriction && aggregatedFriction.ratio > 0.6 && (
+                      <div className="group relative">
+                        <Badge variant="outline" className="cursor-help border-amber-500/50 text-amber-600">
+                          Wait State
+                        </Badge>
+                        <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                          <p className="font-medium text-foreground mb-1">Wait State Analysis</p>
+                          <p className="text-muted-foreground">
+                            {workspaceContext?.description ? 
+                              `Based on "${workspaceContext.name}" context: ${Math.round(aggregatedFriction.ratio * 100)}% of cycle time is waiting. This reflects the ${mcpData?.primaryBottleneck || 'identified bottleneck'}.` :
+                              `${Math.round(aggregatedFriction.ratio * 100)}% wait time indicates systemic friction.`
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {scalability >= 7 && (
+                      <div className="group relative">
+                        <Badge variant="outline" className="cursor-help border-blue-500/50 text-blue-600">
+                          High Velocity
+                        </Badge>
+                        <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                          <p className="font-medium text-foreground mb-1">Autonomous Velocity</p>
+                          <p className="text-muted-foreground">
+                            Scalability score of {scalability}/10 indicates high autonomous execution potential with minimal human bottlenecks.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {workType === 'enablement' && enablementBonus > 0 && (
+                      <div className="group relative">
+                        <Badge variant="outline" className="cursor-help border-purple-500/50 text-purple-600">
+                          Foundation Multiplier
+                        </Badge>
+                        <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                          <p className="font-medium text-foreground mb-1">Enablement Multiplier</p>
+                          <p className="text-muted-foreground">
+                            +{enablementBonus} Impact bonus applied. This Enablement unlocks {mcpData?.linkedDependencies?.length || 0} downstream Activation use cases.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {makes10xFaster && (
+                    <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-600">
+                        Passes 10x Bottleneck Test
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Archetype Classification */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Target className="h-4 w-4 text-muted-foreground" />
+                    Strategic Classification
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4 rounded-lg border p-4">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${archetype.color} text-white`}>
+                      {archetype.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">{archetype.name}</h3>
+                      <p className="text-sm text-muted-foreground">{archetype.description}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Recommended Action</span>
+                    </div>
+                    <Badge variant="outline" className="px-3 py-1 text-base">
+                      {archetype.action}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* RIGHT COLUMN - Strategic Decision (Interactive) */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500">
+                  <Settings2 className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Strategic Decision</h2>
+                  <p className="text-xs text-muted-foreground">Interactive scoring & Jira sync</p>
+                </div>
+                {/* Jira Sync Status Badge */}
+                <Badge 
+                  className={`ml-auto ${
+                    jiraSyncStatus === 'synced' ? 'bg-emerald-500 text-white' :
+                    jiraSyncStatus === 'syncing' ? 'bg-blue-500 text-white' :
+                    'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {jiraSyncStatus === 'synced' ? 'Synced' : jiraSyncStatus === 'syncing' ? 'Syncing...' : 'Pending'}
+                </Badge>
+              </div>
+
+              {/* Score Display */}
+              <Card className="overflow-hidden">
+                <div className={`h-2 ${archetype.color}`} />
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <p className="mb-2 text-sm font-medium text-muted-foreground">Total Score</p>
+                    <div className="mb-4 text-6xl font-bold tabular-nums tracking-tight text-foreground">
+                      {totalScore}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Badge className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}>
+                        {archetype.name}
+                      </Badge>
+                      {isCriticalPath && (
+                        <Badge className="bg-red-600 text-white hover:bg-red-600">Critical Path</Badge>
+                      )}
+                      {isDemoMode && selectedDemoInitiative === 'AI-101' && showLinkedDependencyAlert && (
+                        <Badge className="bg-red-600/90 text-white hover:bg-red-600 border border-red-400">
+                          <AlertTriangle className="mr-1 h-3 w-3" />
+                          Requires DATA-05
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* IFS Sliders */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                      H
-                    </span>
-                    Human-in-the-Loop Scoring
-                  </CardTitle>
+              {/* Human Override Toggle */}
+              <Card className={isHumanOverrideActive ? 'border-amber-500/50 bg-amber-500/5' : ''}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                        H
+                      </span>
+                      Human-in-the-Loop Override
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Enable</Label>
+                      <Switch 
+                        checked={isHumanOverrideActive} 
+                        onCheckedChange={(checked) => {
+                          setIsHumanOverrideActive(checked)
+                          if (!checked) setHumanOverrideDisclaimer('')
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {isHumanOverrideActive && (
+                    <p className="text-xs text-amber-600">
+                      Override mode active - adjust AI scores manually
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Human Override Disclaimer */}
+                  {humanOverrideDisclaimer && (
+                    <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+                      <div className="flex items-center gap-2 text-sm text-amber-700">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <p className="italic">{humanOverrideDisclaimer}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <ScoreSlider
                     icon={<Zap className="h-4 w-4" />}
                     label="Impact"
                     dimension="impact"
                     value={impact}
-                    onChange={(v) => handleScoreChange('impact', v)}
+                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('impact', v) : handleScoreChange('impact', v)}
                     bonus={enablementBonus + (hasStrategicBonus ? 1 : 0)}
                     isOverridden={mcpOriginalScores && mcpOriginalScores.impact !== impact}
+                    disabled={!isHumanOverrideActive && isDemoMode}
                   />
                   <ScoreSlider
                     icon={<Target className="h-4 w-4" />}
                     label="Feasibility"
                     dimension="feasibility"
                     value={feasibility}
-                    onChange={(v) => handleScoreChange('feasibility', v)}
+                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('feasibility', v) : handleScoreChange('feasibility', v)}
                     penalty={feasibilityPenalty}
                     isOverridden={mcpOriginalScores && mcpOriginalScores.feasibility !== feasibility}
+                    disabled={!isHumanOverrideActive && isDemoMode}
                   />
                   <ScoreSlider
                     icon={<TrendingUp className="h-4 w-4" />}
                     label="Scalability"
                     dimension="scalability"
                     value={scalability}
-                    onChange={(v) => handleScoreChange('scalability', v)}
+                    onChange={(v) => isHumanOverrideActive ? handleHumanOverrideScoreChange('scalability', v) : handleScoreChange('scalability', v)}
                     isOverridden={mcpOriginalScores && mcpOriginalScores.scalability !== scalability}
+                    disabled={!isHumanOverrideActive && isDemoMode}
                   />
                 </CardContent>
               </Card>
@@ -2311,131 +2661,96 @@ export default function HyperadaptivePrioritizationEngine() {
                   </CardContent>
                 </Card>
               )}
-            </div>
 
-            {/* Middle Column - Results */}
-            <div className="space-y-6">
-              {/* Score Display */}
-              <Card className="overflow-hidden">
-                <div className={`h-1.5 ${archetype.color}`} />
-                <CardContent className="pt-6">
-                  <div className="flex flex-col items-center justify-center py-4">
-                    <p className="mb-2 text-sm font-medium text-muted-foreground">Total Score</p>
-                    <div className="mb-4 text-6xl font-bold tabular-nums tracking-tight text-foreground">
-                      {totalScore}
-                    </div>
-<div className="flex flex-wrap items-center justify-center gap-2">
-  <Badge className={`px-4 py-1.5 text-sm font-medium text-white ${archetype.color}`}>
-  {archetype.name}
-  </Badge>
-  {isCriticalPath && (
-  <Badge className="bg-red-600 text-white hover:bg-red-600">
-  Critical Path
-  </Badge>
-  )}
-  {/* Demo Mode: Dependency Alert for AI-101 */}
-  {isDemoMode && selectedDemoInitiative === 'AI-101' && showLinkedDependencyAlert && (
-  <Badge className="bg-red-600/90 text-white hover:bg-red-600 border border-red-400">
-  <AlertTriangle className="mr-1 h-3 w-3" />
-  Requires DATA-05 Foundation
-  </Badge>
-  )}
-  </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Confirm Priority & Sync to Jira CTA */}
+              {isDemoMode && selectedDemoInitiative && (
+                <Card className={`border-2 transition-all duration-300 ${
+                  jiraSyncStatus === 'synced' 
+                    ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 to-green-500/10' 
+                    : 'border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-indigo-500/5'
+                }`}>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-5 w-5 text-blue-600" />
+                          <span className="font-semibold text-foreground">Jira Integration</span>
+                        </div>
+                        <Badge 
+                          className={`${
+                            jiraSyncStatus === 'synced' ? 'bg-emerald-500 text-white' :
+                            jiraSyncStatus === 'syncing' ? 'bg-blue-500 text-white animate-pulse' :
+                            'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {jiraSyncStatus === 'synced' ? (
+                            <><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Synced</>
+                          ) : jiraSyncStatus === 'syncing' ? (
+                            <><Spinner className="mr-1.5 h-3.5 w-3.5" /> Syncing...</>
+                          ) : (
+                            'Pending'
+                          )}
+                        </Badge>
+                      </div>
 
-              {/* Archetype Card */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Lightbulb className="h-4 w-4 text-muted-foreground" />
-                    Strategic Classification
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-4 rounded-lg border p-4">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${archetype.color} text-white`}>
-                      {archetype.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground">{archetype.name}</h3>
-                      <p className="text-sm text-muted-foreground">{archetype.description}</p>
-                    </div>
-                  </div>
+                      {jiraSyncStatus === 'synced' ? (
+                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4">
+                          <div className="flex items-center gap-2 text-emerald-700">
+                            <CheckCircle2 className="h-5 w-5" />
+                            <p className="text-sm font-medium">
+                              Jira Issue {selectedDemoInitiative} updated: Priority set to {archetype.name} | IFS Score {totalScore} synced.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Confirm the priority classification and sync the IFS score back to Jira.
+                        </p>
+                      )}
 
-                  <div className="rounded-lg border border-border bg-muted/30 p-4">
-                    <div className="mb-2 flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4 text-primary" />
-                      <span className="font-medium">Recommended Action</span>
+                      <Button 
+                        onClick={syncToJira}
+                        disabled={isSyncingToJira || jiraSyncStatus === 'synced'}
+                        className={`w-full h-14 text-base font-semibold transition-all duration-300 ${
+                          jiraSyncStatus === 'synced'
+                            ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                        }`}
+                      >
+                        {isSyncingToJira ? (
+                          <>
+                            <Spinner className="mr-2 h-5 w-5" />
+                            Syncing to Atlassian MCP...
+                          </>
+                        ) : jiraSyncStatus === 'synced' ? (
+                          <>
+                            <CheckCircle2 className="mr-2 h-5 w-5" />
+                            Priority Synced to Jira
+                          </>
+                        ) : (
+                          <>
+                            <Import className="mr-2 h-5 w-5" />
+                            Confirm Priority & Sync to Jira
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Badge variant="outline" className="px-3 py-1 text-base">
-                      {archetype.action}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
-              {/* Context Metadata */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Gauge className="h-4 w-4 text-muted-foreground" />
-                    Context Metadata
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Certainty Score */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Certainty Score</Label>
-                      <Badge variant={certaintyScore >= 50 ? 'default' : 'destructive'} 
-                        className={certaintyScore >= 50 ? 'bg-green-500 hover:bg-green-500/90' : ''}>
-                        {certaintyScore}%
-                      </Badge>
-                    </div>
-                    <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={certaintyScore >= 50 ? 'bg-green-500' : 'bg-red-500'}
-                        style={{ width: `${certaintyScore}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* AI Reasoning */}
-                  <div className="space-y-2">
-                    <Label className="text-sm">AI Reasoning Rubric</Label>
-                    <div className="rounded-lg border border-border bg-card p-4">
-                      <p className="text-sm leading-relaxed text-foreground">{reasoning}</p>
-                    </div>
-                  </div>
-
-                  {makes10xFaster && (
-                    <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      <span className="text-sm font-medium text-emerald-600">
-                        Passes 10x Bottleneck Test
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - Foundations & History */}
-            <div className="space-y-6">
               {/* Foundations */}
               <Card>
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Layers className="h-4 w-4 text-muted-foreground" />
-                    Foundations
+                    Linked Foundations
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {foundations.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <Layers className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                    <div className="py-4 text-center">
+                      <Layers className="mx-auto h-6 w-6 text-muted-foreground/50" />
                       <p className="mt-2 text-sm text-muted-foreground">No foundations linked.</p>
                     </div>
                   ) : (
@@ -2443,27 +2758,21 @@ export default function HyperadaptivePrioritizationEngine() {
                       {foundations.map((foundation) => (
                         <div
                           key={foundation.key}
-                          className="relative rounded-lg border border-purple-500/30 bg-purple-500/5 p-4"
+                          className="relative rounded-lg border border-purple-500/30 bg-purple-500/5 p-3"
                         >
                           <button
                             onClick={() => removeFoundation(foundation.key)}
                             className="absolute right-2 top-2 rounded-full p-1 text-muted-foreground hover:bg-muted"
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-3 w-3" />
                           </button>
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500 text-white">
-                              <Layers className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 pr-6">
+                          <div className="flex items-start gap-2">
+                            <Layers className="h-4 w-4 text-purple-500 mt-0.5" />
+                            <div className="flex-1 pr-4">
                               <Badge variant="outline" className="mb-1 font-mono text-xs">
                                 {foundation.key}
                               </Badge>
                               <p className="text-sm font-medium text-foreground">{foundation.title}</p>
-                              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Link2 className="h-3 w-3" />
-                                <span>Linked to {foundation.linkedTo}</span>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -2474,90 +2783,45 @@ export default function HyperadaptivePrioritizationEngine() {
               </Card>
 
               {/* Override History */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <History className="h-4 w-4 text-muted-foreground" />
-                    Override Archive
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {overrideHistory.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <History className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                      <p className="mt-2 text-sm text-muted-foreground">No overrides recorded.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
+              {overrideHistory.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <History className="h-4 w-4 text-muted-foreground" />
+                      Override History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
                       {overrideHistory.map((entry, index) => (
                         <div
                           key={index}
-                          className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3"
+                          className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2"
                         >
-                          <div className="mb-1 flex items-center justify-between">
+                          <div className="flex items-center justify-between text-xs">
                             <Badge variant="outline" className="text-xs">{entry.field}</Badge>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-muted-foreground">
                               {entry.previousValue} → {entry.newValue}
                             </span>
                           </div>
-                          <p className="text-sm text-foreground">{entry.reason}</p>
+                          <p className="text-xs text-foreground mt-1">{entry.reason}</p>
                         </div>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Archetype Legend */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                    Archetype Legend
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-2">
-                    {[
-                      { name: 'Transformer', score: '> 100', color: 'bg-blue-500' },
-                      { name: 'The Foundation', score: 'High I/S, Low F', color: 'bg-purple-500' },
-                      { name: 'Quick Win', score: 'High F, Mid I', color: 'bg-green-500' },
-                      { name: 'The Experiment', score: '40-74', color: 'bg-yellow-500' },
-                      { name: 'Money Pit', score: 'Low S, High F', color: 'bg-orange-500' },
-                      { name: 'The Noise', score: '< 20', color: 'bg-gray-500' },
-                    ].map((item) => (
-                      <div key={item.name} className="flex items-center gap-3 text-sm">
-                        <div className={`h-3 w-3 rounded-full ${item.color}`} />
-                        <span className="font-medium text-foreground">{item.name}</span>
-                        <span className="text-muted-foreground">({item.score})</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Demo Mode: Test Another Scenario Button */}
-              {isDemoMode && selectedDemoInitiative && (
-                <Card className="border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
-                  <CardContent className="p-6">
-                    <div className="text-center space-y-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <Sparkles className="h-5 w-5 text-amber-600" />
-                        <span className="font-medium text-foreground">Demo Mode Active</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        See how different initiatives receive different archetype classifications based on IFS scores.
-                      </p>
-                      <Button 
-                        onClick={resetDemoInitiative}
-                        className="w-full h-12 text-base font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                      >
-                        <ArrowRight className="mr-2 h-5 w-5 rotate-180" />
-                        Test Another Scenario
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Test Another Scenario */}
+              {isDemoMode && selectedDemoInitiative && (
+                <Button 
+                  onClick={resetDemoInitiative}
+                  variant="outline"
+                  className="w-full h-12 text-base"
+                >
+                  <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
+                  Test Another Scenario
+                </Button>
               )}
             </div>
           </div>
@@ -2718,6 +2982,7 @@ function ScoreSlider({
   bonus = 0,
   penalty = 0,
   isOverridden = false,
+  disabled = false,
 }: {
   icon: React.ReactNode
   label: string
@@ -2727,6 +2992,7 @@ function ScoreSlider({
   bonus?: number
   penalty?: number
   isOverridden?: boolean
+  disabled?: boolean
 }) {
   const displayValue = Math.min(10, Math.max(1, value + bonus - penalty))
   const rubric = IFS_RUBRICS[dimension]
@@ -2793,7 +3059,8 @@ function ScoreSlider({
         min={1}
         max={10}
         step={1}
-        className="w-full"
+        className={`w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        disabled={disabled}
       />
       {/* Dynamic Rubric Guidance */}
       <p className="text-xs text-muted-foreground">
