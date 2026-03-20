@@ -44,20 +44,36 @@ const mockJiraData: Record<string, {
   impact_hint: string
 }> = {
   'AI-101': {
-    title: 'Automated Claims Processing',
-    bottleneck: 'Manual data entry from PDFs (8 hours/day)',
-    readiness: 'Siloed',
-    links: ['INFRA-20', 'DATA-05', 'DATA-09'],
+    title: 'Automated Content Localization',
+    bottleneck: 'Manual translation (4 days/market)',
+    readiness: 'Ready',
+    links: ['DATA-05'],
     type: 'Activation',
-    impact_hint: 'Eliminates primary entry bottleneck for the billing team.',
+    impact_hint: 'Eliminates primary localization bottleneck.',
   },
   'DATA-05': {
-    title: 'Snowflake-to-Model Pipeline',
-    bottleneck: 'No real-time data flow for AI models',
-    readiness: 'Ready',
-    links: ['AI-101', 'AI-105', 'AI-202'],
+    title: 'Global Terminology Database',
+    bottleneck: 'Inconsistent brand voice across regions',
+    readiness: 'Siloed',
+    links: ['AI-101', 'AI-102', 'AI-103', 'AI-104'],
     type: 'Enablement',
-    impact_hint: 'Unlocks 3 high-impact activation use cases.',
+    impact_hint: 'Unlocks 4 high-impact activation use cases.',
+  },
+  'AI-202': {
+    title: 'Generic FAQ Chatbot',
+    bottleneck: 'None (General Inquiry)',
+    readiness: 'Ready',
+    links: [],
+    type: 'Activation',
+    impact_hint: 'Does not address a primary workflow constraint.',
+  },
+  'INFRA-99': {
+    title: 'Vector Database Setup',
+    bottleneck: 'No retrieval infrastructure for RAG',
+    readiness: 'Ready',
+    links: ['AI-301', 'AI-302'],
+    type: 'Enablement',
+    impact_hint: 'Prerequisite for all RAG-based search tools.',
   },
 }
 
@@ -110,7 +126,7 @@ function getArchetype(
     return {
       name: 'Transformer',
       action: 'Immediate Delivery',
-      color: 'bg-emerald-500',
+      color: 'bg-blue-500',
       icon: <Rocket className="h-5 w-5" />,
       description: 'High impact, feasibility, and scalability. Ship immediately.',
     }
@@ -120,8 +136,8 @@ function getArchetype(
   if (impact >= 7 && scalability >= 7 && feasibility <= 4 && workType === 'enablement') {
     return {
       name: 'The Foundation',
-      action: 'Fund Infrastructure',
-      color: 'bg-blue-500',
+      action: 'Fund Infrastructure (Enablement)',
+      color: 'bg-purple-500',
       icon: <Layers className="h-5 w-5" />,
       description: 'Critical enablement work. Invest in infrastructure first.',
     }
@@ -132,7 +148,7 @@ function getArchetype(
     return {
       name: 'Quick Win',
       action: 'Build Momentum',
-      color: 'bg-cyan-500',
+      color: 'bg-green-500',
       icon: <Zap className="h-5 w-5" />,
       description: 'High feasibility with moderate impact. Build momentum.',
     }
@@ -143,7 +159,7 @@ function getArchetype(
     return {
       name: 'The Experiment',
       action: 'Time-box Prompting Party',
-      color: 'bg-amber-500',
+      color: 'bg-yellow-500',
       icon: <FlaskConical className="h-5 w-5" />,
       description: 'Moderate potential. Time-box exploration to validate.',
     }
@@ -165,7 +181,7 @@ function getArchetype(
     return {
       name: 'The Noise',
       action: 'Discard',
-      color: 'bg-red-500',
+      color: 'bg-gray-500',
       icon: <Volume2 className="h-5 w-5" />,
       description: 'Low value across all dimensions. Discard.',
     }
@@ -248,9 +264,9 @@ export default function HyperadaptivePrioritizationEngine() {
     return adjustedImpact * scalability * feasibility
   }, [adjustedImpact, scalability, feasibility])
 
-  // Certainty Score
+  // Certainty Score (30% Manual, 95% MCP)
   const certaintyScore = useMemo(() => {
-    return dataMode === 'mcp' ? 9 : 3
+    return dataMode === 'mcp' ? 95 : 30
   }, [dataMode])
 
   // Get archetype
@@ -496,7 +512,7 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                   )}
 
                   <p className="text-xs text-muted-foreground">
-                    Demo keys: AI-101 (Localization), AI-200 (Hero Images), AI-300 (Onboarding)
+                    Demo keys: AI-101, DATA-05, AI-202, INFRA-99
                   </p>
                 </CardContent>
               </Card>
@@ -712,22 +728,22 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm">Certainty Score</Label>
-                    <Badge variant={certaintyScore >= 7 ? 'default' : 'secondary'}>
-                      {certaintyScore}/10
+                    <Badge variant={certaintyScore >= 50 ? 'default' : 'destructive'} className={certaintyScore >= 50 ? 'bg-green-500 hover:bg-green-500/90' : ''}>
+                      {certaintyScore}%
                     </Badge>
                   </div>
                   <div className="flex h-2 overflow-hidden rounded-full bg-muted">
                     <div
                       className={`transition-all duration-500 ${
-                        certaintyScore >= 7 ? 'bg-emerald-500' : 'bg-amber-500'
+                        certaintyScore >= 50 ? 'bg-green-500' : 'bg-red-500'
                       }`}
-                      style={{ width: `${certaintyScore * 10}%` }}
+                      style={{ width: `${certaintyScore}%` }}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {dataMode === 'mcp'
-                      ? 'High certainty - Data sourced from Atlassian MCP'
-                      : 'Low certainty - Manual entry mode. Consider MCP for validation.'}
+                      ? 'High certainty (95%) - Data sourced from Atlassian MCP'
+                      : 'Low certainty (30%) - Manual entry mode. Consider MCP for validation.'}
                   </p>
                 </div>
 
@@ -764,12 +780,12 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
               <CardContent>
                 <div className="grid gap-2">
                   {[
-                    { name: 'Transformer', score: '> 100', color: 'bg-emerald-500' },
-                    { name: 'The Foundation', score: 'High I/S, Low F + Enablement', color: 'bg-blue-500' },
-                    { name: 'Quick Win', score: 'High F, Mid I', color: 'bg-cyan-500' },
-                    { name: 'The Experiment', score: '40-74', color: 'bg-amber-500' },
+                    { name: 'Transformer', score: '> 100', color: 'bg-blue-500' },
+                    { name: 'The Foundation', score: 'High I/S, Low F + Enablement', color: 'bg-purple-500' },
+                    { name: 'Quick Win', score: 'High F, Mid I', color: 'bg-green-500' },
+                    { name: 'The Experiment', score: '40-74', color: 'bg-yellow-500' },
                     { name: 'Money Pit', score: 'Low S, High F', color: 'bg-orange-500' },
-                    { name: 'The Noise', score: '< 20', color: 'bg-red-500' },
+                    { name: 'The Noise', score: '< 20', color: 'bg-gray-500' },
                   ].map((item) => (
                     <div key={item.name} className="flex items-center gap-3 text-sm">
                       <div className={`h-3 w-3 rounded-full ${item.color}`} />
