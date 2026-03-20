@@ -496,6 +496,7 @@ export default function HyperadaptivePrioritizationEngine() {
   
   // Context State (Step 1)
   const [isContextSet, setIsContextSet] = useState(false)
+  const [contextTitle, setContextTitle] = useState('')
   const [clientContext, setClientContext] = useState('')
   const [organizationalFocus, setOrganizationalFocus] = useState<string>('')
   const [resourceCapacity, setResourceCapacity] = useState<'high' | 'medium' | 'low'>('medium')
@@ -593,12 +594,13 @@ export default function HyperadaptivePrioritizationEngine() {
       setFeasibility(5)
       setScalability(5)
       setMcpOriginalScores(null)
-      setFoundations([])
+setFoundations([])
       setClientContext('')
+      setContextTitle('')
       
       toast({
         title: 'Demo Mode Disabled',
-        description: 'All demo data cleared.',
+        description: 'All demo data cleared. Ready for manual input.',
       })
     }
   }, [toast])
@@ -1677,29 +1679,54 @@ export default function HyperadaptivePrioritizationEngine() {
                   </>
                 ) : (
                   <>
-                    {/* Client Context - Free text description */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label>Client Context</Label>
-                        <div className="group relative">
-                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
-                          <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
-                            <p className="font-medium text-foreground mb-1">Client Context</p>
-                            <p className="text-muted-foreground">
-                              Describe the organization's industry, size, current state, and strategic objectives. This holistic context frames all initiative prioritization decisions.
-                            </p>
-                            <p className="text-muted-foreground mt-2 italic">
-                              Example: "Fortune 500 insurance company modernizing claims processing. Legacy mainframe systems, 10,000+ agents, Q4 deadline for digital transformation."
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <Textarea
-                        placeholder="Describe the client organization: industry, size, current systems, strategic goals, key stakeholders, and any critical constraints or deadlines..."
-                        value={clientContext}
-                        onChange={(e) => setClientContext(e.target.value)}
-                        className="min-h-24 resize-none"
-                      />
+{/* Context Title */}
+  <div className="space-y-2">
+  <div className="flex items-center gap-2">
+  <Label>Context Title</Label>
+  <div className="group relative">
+  <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+  <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+  <p className="font-medium text-foreground mb-1">Context Title</p>
+  <p className="text-muted-foreground">
+  A short, descriptive name for this prioritization context. This will be used to identify the context throughout the analysis.
+  </p>
+  <p className="text-muted-foreground mt-2 italic">
+  Example: "Q4 Digital Transformation Initiative" or "Marketing AI Modernization"
+  </p>
+  </div>
+  </div>
+  </div>
+  <Input
+  placeholder="e.g., Q4 Digital Transformation Initiative"
+  value={contextTitle}
+  onChange={(e) => setContextTitle(e.target.value)}
+  className="w-full"
+  />
+  </div>
+
+  {/* Client Context - Free text description */}
+  <div className="space-y-2">
+  <div className="flex items-center gap-2">
+  <Label>Client Context</Label>
+  <div className="group relative">
+  <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+  <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+  <p className="font-medium text-foreground mb-1">Client Context</p>
+  <p className="text-muted-foreground">
+  Describe the organization's industry, size, current state, and strategic objectives. This holistic context frames all initiative prioritization decisions.
+  </p>
+  <p className="text-muted-foreground mt-2 italic">
+  Example: "Fortune 500 insurance company modernizing claims processing. Legacy mainframe systems, 10,000+ agents, Q4 deadline for digital transformation."
+  </p>
+  </div>
+  </div>
+  </div>
+  <Textarea
+  placeholder="Describe the client organization: industry, size, current systems, strategic goals, key stakeholders, and any critical constraints or deadlines..."
+  value={clientContext}
+  onChange={(e) => setClientContext(e.target.value)}
+  className="min-h-24 resize-none"
+  />
                       <p className="text-xs text-muted-foreground">
                         This context will be used to evaluate how well each initiative aligns with organizational needs.
                       </p>
@@ -1790,15 +1817,15 @@ export default function HyperadaptivePrioritizationEngine() {
             {isContextSet && (
               <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                    <div>
-                      <span className="font-medium text-foreground">Context Active:</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {workspaceContext?.name || organizationalFocus} | {resourceCapacity} capacity
-                      </span>
-                    </div>
-                  </div>
+<div className="flex items-center gap-3">
+  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+  <div>
+  <span className="font-medium text-foreground">Context Active:</span>
+  <span className="ml-2 text-muted-foreground">
+  {workspaceContext?.name || contextTitle || organizationalFocus} | {resourceCapacity} capacity
+  </span>
+  </div>
+  </div>
                 </div>
                 {(clientContext || workspaceContext?.description) && (
                   <p className="text-xs text-muted-foreground pl-8 line-clamp-2">
