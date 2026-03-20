@@ -578,26 +578,31 @@ const data = MOCK_MCP_DATA[jiraKey.toUpperCase()]
                 </div>
 
                 {/* Initiative Type Selection */}
-                <div className="flex items-center gap-4">
+                <div className="space-y-2">
                   <Label className="text-sm">Initiative Type:</Label>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant={workType === 'activation' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setWorkType('activation')}
+                      className="w-full justify-center"
                     >
                       <Zap className="mr-1.5 h-3.5 w-3.5" />
-                      Activation (Business Use Case)
+                      Activation
                     </Button>
                     <Button
                       variant={workType === 'enablement' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setWorkType('enablement')}
+                      className="w-full justify-center"
                     >
                       <Layers className="mr-1.5 h-3.5 w-3.5" />
-                      Enablement (Foundation)
+                      Enablement
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Activation = Business use case | Enablement = Foundation/infrastructure
+                  </p>
                 </div>
 
                 {/* Bottleneck Test Checklist */}
