@@ -1101,6 +1101,9 @@ export default function HyperadaptivePrioritizationEngine() {
                   <Settings2 className="h-5 w-5 text-primary" />
                   Context & Constraints
                 </CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Define your organization's strategic priorities and resource availability. This context directly influences how AI initiatives are scored and classified.
+                </p>
               </CardHeader>
               <CardContent className="space-y-6">
                 {dataMode === 'mcp' ? (
@@ -1183,7 +1186,18 @@ export default function HyperadaptivePrioritizationEngine() {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <Label>Organizational Focus</Label>
+                      <div className="flex items-center gap-2">
+                        <Label>Organizational Focus</Label>
+                        <div className="group relative">
+                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                          <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                            <p className="font-medium text-foreground mb-1">Organizational Focus</p>
+                            <p className="text-muted-foreground">
+                              Your company's primary strategic objective. Initiatives that align with this focus receive a +1 Strategic Alignment Bonus to their Impact score.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <Select value={organizationalFocus} onValueChange={setOrganizationalFocus}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select focus area" />
@@ -1196,10 +1210,29 @@ export default function HyperadaptivePrioritizationEngine() {
                           <SelectItem value="Process Efficiency">Process Efficiency</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Select the strategic priority that best represents current leadership directives.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Resource Capacity</Label>
+                      <div className="flex items-center gap-2">
+                        <Label>Resource Capacity</Label>
+                        <div className="group relative">
+                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                          <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
+                            <p className="font-medium text-foreground mb-1">Resource Capacity</p>
+                            <p className="text-muted-foreground mb-2">
+                              Current team bandwidth and availability for AI initiative work.
+                            </p>
+                            <ul className="text-muted-foreground space-y-1">
+                              <li><span className="font-medium">High:</span> Dedicated team, full focus</li>
+                              <li><span className="font-medium">Medium:</span> Shared resources, partial allocation</li>
+                              <li><span className="font-medium">Low:</span> Limited bandwidth, competing priorities</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
                         {(['high', 'medium', 'low'] as const).map((level) => (
                           <Button
@@ -1212,6 +1245,9 @@ export default function HyperadaptivePrioritizationEngine() {
                           </Button>
                         ))}
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Low capacity may affect Feasibility scoring for complex initiatives.
+                      </p>
                     </div>
 
                     <Button onClick={handleSetManualContext} className="w-full">
