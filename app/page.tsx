@@ -559,7 +559,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [foundations, setFoundations] = useState<FoundationItem[]>([])
 
   // Framework visibility
-  const [isFrameworkOpen, setIsFrameworkOpen] = useState(false)
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState(true)
 
   // Handle Demo Mode Toggle - Auto-populate context
   const handleDemoModeToggle = useCallback((enabled: boolean) => {
