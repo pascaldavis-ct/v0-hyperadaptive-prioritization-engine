@@ -235,6 +235,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [isUploadingPdf, setIsUploadingPdf] = useState(false)
   const [contextTicketKey, setContextTicketKey] = useState('')
   const [isLoadingContextTicket, setIsLoadingContextTicket] = useState(false)
+  const [loadedContextTickets, setLoadedContextTickets] = useState<string[]>([])
   
   // Step 2: Ticket Selection
   const [projectIssues, setProjectIssues] = useState<TransformedIssue[]>([])
@@ -403,11 +404,78 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Load context from a JIRA ticket
+  // Load context from Executive Summary tickets in the selected project
+  const loadExecutiveSummaryTickets = async () => {
+    if (!selectedProject) {
+      toast({
+        title: 'Project Required',
+        description: 'Please select a JIRA project first.',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    setIsLoadingContextTicket(true)
+    setLoadedContextTickets([])
+    
+    try {
+      // Search for tickets containing "Executive Summary" in the title within the selected project
+      const response = await fetch(`/api/jira/issues?projectKey=${selectedProject.key}&maxResults=100`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to search tickets')
+      }
+      
+      const issues = data.issues as TransformedIssue[]
+      
+      // Filter for tickets containing "Executive Summary" in the title (case-insensitive)
+      const executiveSummaryTickets = issues.filter(issue => 
+        issue.title.toLowerCase().includes('executive summary')
+      )
+      
+      if (executiveSummaryTickets.length === 0) {
+        toast({
+          title: 'No Executive Summary Tickets Found',
+          description: `No tickets containing "Executive Summary" were found in ${selectedProject.key}.`,
+          variant: 'destructive',
+        })
+        return
+      }
+      
+      // Combine content from all matching tickets
+      const ticketKeys = executiveSummaryTickets.map(t => t.key)
+      const combinedContent = executiveSummaryTickets.map(ticket => {
+        const content = ticket.description || ticket.title
+        return `--- ${ticket.key}: ${ticket.title} ---\n${content}`
+      }).join('\n\n')
+      
+      setClientContext(combinedContent)
+      setContextTitle(`Executive Summary Context (${ticketKeys.length} ticket${ticketKeys.length > 1 ? 's' : ''})`)
+      setLoadedContextTickets(ticketKeys)
+      
+      toast({
+        title: 'Executive Summary Loaded',
+        description: `Loaded context from ${ticketKeys.length} ticket${ticketKeys.length > 1 ? 's' : ''}: ${ticketKeys.join(', ')}`,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load tickets'
+      toast({
+        title: 'Error Loading Executive Summary',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingContextTicket(false)
+    }
+  }
+  
+  // Load context from a specific JIRA ticket by key
   const loadContextFromTicket = async () => {
     if (!contextTicketKey.trim()) return
     
     setIsLoadingContextTicket(true)
+    setLoadedContextTickets([])
     
     try {
       const response = await fetch(`/api/jira/issue/${contextTicketKey}`)
@@ -420,6 +488,7 @@ export default function HyperadaptivePrioritizationEngine() {
       const issue = data.issue as TransformedIssue
       setClientContext(issue.description || issue.title)
       setContextTitle(`${issue.key}: ${issue.title}`)
+      setLoadedContextTickets([issue.key])
       
       toast({
         title: 'Context Loaded from Ticket',
@@ -908,21 +977,73 @@ export default function HyperadaptivePrioritizationEngine() {
 
                 {/* Ticket Context */}
                 {contextMethod === 'ticket' && (
-                  <div className="space-y-2">
-                    <Label>Load Context from Ticket</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter ticket key (e.g., PROJ-123)"
-                        value={contextTicketKey}
-                        onChange={(e) => setContextTicketKey(e.target.value)}
-                        className="flex-1"
-                      />
+                  <div className="space-y-4">
+                    {/* Auto-load Executive Summary */}
+                    <div className="space-y-2">
+                      <Label>Load Executive Summary Tickets</Label>
                       <Button 
-                        onClick={loadContextFromTicket} 
-                        disabled={isLoadingContextTicket || !contextTicketKey.trim()}
+                        onClick={loadExecutiveSummaryTickets} 
+                        disabled={isLoadingContextTicket || !selectedProject}
+                        className="w-full"
+                        variant="secondary"
                       >
-                        {isLoadingContextTicket ? <Spinner className="h-4 w-4" /> : 'Load'}
+                        {isLoadingContextTicket ? (
+                          <>
+                            <Spinner className="mr-2 h-4 w-4" />
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="mr-2 h-4 w-4" />
+                            Find &quot;Executive Summary&quot; Tickets
+                          </>
+                        )}
                       </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Automatically finds and loads all tickets containing &quot;Executive Summary&quot; in the title from the selected project.
+                      </p>
+                    </div>
+                    
+                    {/* Loaded tickets display */}
+                    {loadedContextTickets.length > 0 && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-sm font-medium mb-1">Loaded Tickets:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {loadedContextTickets.map(key => (
+                            <Badge key={key} variant="secondary" className="font-mono text-xs">
+                              {key}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Or load specific ticket */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or load specific ticket</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Load by Ticket Key</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter ticket key (e.g., PROJ-123)"
+                          value={contextTicketKey}
+                          onChange={(e) => setContextTicketKey(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button 
+                          onClick={loadContextFromTicket} 
+                          disabled={isLoadingContextTicket || !contextTicketKey.trim()}
+                        >
+                          {isLoadingContextTicket ? <Spinner className="h-4 w-4" /> : 'Load'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
