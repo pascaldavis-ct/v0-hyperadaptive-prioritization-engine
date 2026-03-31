@@ -14,9 +14,7 @@ export async function GET(request: Request) {
       )
     }
     
-    console.log('[v0] Epics API: Fetching epics for project:', projectKey)
     const epics = await getProjectEpics(projectKey, maxResults)
-    console.log('[v0] Epics API: Found', epics.length, 'epics')
     
     // Transform to our internal format
     const transformedEpics = epics.map(transformIssue)
