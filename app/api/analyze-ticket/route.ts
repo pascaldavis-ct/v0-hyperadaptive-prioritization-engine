@@ -68,29 +68,33 @@ ${issueType === 'Sub-task' ? `This is a **Sub-task** - a smaller piece of work u
 
 ## Scoring Guidelines:
 
-### Impact (1-10): Business value and strategic importance
-- 9-10: Critical business blocker, high revenue impact, urgent timeline (weeks), affects many users/teams
-- 7-8: Significant business value, clear ROI, moderate urgency, affects key workflows
-- 5-6: Standard business value, indirect benefits, normal priority
-- 3-4: Low business impact, nice-to-have, minimal user impact
-- 1-2: Negligible impact, no clear business case
-${issueType === 'Bug' ? '\n**Bug Impact Modifier**: Critical/blocker bugs should score 8-10, major bugs 6-8, minor bugs 3-5.' : ''}
+IMPORTANT: Be CRITICAL and DISCRIMINATING. Most tickets should score in the 4-6 range (average). Only exceptional tickets deserve 7+ scores. Reserve 9-10 for truly extraordinary items with explicit evidence.
 
-### Feasibility (1-10): Implementation readiness and complexity
-- 9-10: Simple implementation, clear requirements, existing patterns/tools, minimal dependencies
-- 7-8: Moderate complexity, well-understood domain, some dependencies
-- 5-6: Standard complexity, requires design work, multiple dependencies
-- 3-4: Complex implementation, legacy systems, unclear requirements, many dependencies
-- 1-2: Very complex, requires significant research, high technical risk
-${issueType === 'Bug' ? '\n**Bug Feasibility Modifier**: Well-isolated bugs with clear reproduction = higher feasibility. Intermittent or cross-cutting bugs = lower.' : ''}
+### Impact (1-10): Business value and strategic importance
+- 9-10: RARE - Must have explicit evidence of: revenue >$1M impact, C-suite urgency, or company-wide blocker. Requires proof, not assumptions.
+- 7-8: Clear quantified business value stated in ticket, documented ROI, explicit deadline with consequences
+- 5-6: TYPICAL - Standard business value, stated importance without hard metrics, normal priority
+- 3-4: Vague benefits, "nice-to-have" language, no urgency indicators, limited user scope
+- 1-2: No stated business case, unclear purpose, purely technical debt with no user impact
+${issueType === 'Bug' ? '\n**Bug Impact**: Only P0/P1 production-down bugs score 8+. Most bugs are 4-6 unless affecting revenue or large user base.' : ''}
+
+### Feasibility (1-10): Implementation readiness and complexity  
+- 9-10: RARE - Trivial change (<1 day), exact solution known, zero dependencies, no unknowns
+- 7-8: Clear requirements, familiar technology, team has done similar work recently
+- 5-6: TYPICAL - Standard complexity, some design needed, normal dependencies
+- 3-4: Ambiguous requirements, unfamiliar systems, cross-team dependencies, learning curve
+- 1-2: Major unknowns, requires research/POC, legacy systems, architectural changes needed
+${issueType === 'Bug' ? '\n**Bug Feasibility**: Only obvious single-line fixes score 8+. Root cause investigation = lower scores.' : ''}
 
 ### Scalability (1-10): Reuse and automation potential
-- 9-10: Fully automated, reusable across organization, self-service capable
-- 7-8: Partially automated, reusable across multiple teams/projects
-- 5-6: Some reuse potential, manual intervention required
-- 3-4: Limited reuse, mostly one-off solution
-- 1-2: Single-use, no reuse potential
-${issueType === 'Bug' ? '\n**Bug Scalability Modifier**: Fixing root causes that prevent future bugs = higher scalability. One-off fixes = lower.' : ''}
+- 9-10: RARE - Explicitly designed as platform/framework, documented reuse plan, self-service by design
+- 7-8: Component designed for reuse, API/service that multiple teams will consume
+- 5-6: TYPICAL - Standard implementation, could be reused with modification
+- 3-4: Specific to one use case, would need significant rework to reuse
+- 1-2: One-off fix, hardcoded values, no abstraction, single customer/scenario
+${issueType === 'Bug' ? '\n**Bug Scalability**: Bug fixes are typically 3-5 unless addressing systemic issues or adding preventive automation.' : ''}
+
+DEFAULT ASSUMPTION: If the ticket lacks explicit evidence for a score, default to 5 (average). The burden of proof is on the ticket to justify higher scores.
 
 ### Work Type:
 - "enablement": Infrastructure, platforms, APIs, data pipelines, foundational capabilities

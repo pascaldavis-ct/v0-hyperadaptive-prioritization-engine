@@ -17,13 +17,10 @@ export async function GET(
       )
     }
     
-    console.log('[v0] Epic children API called for:', epicKey)
     const children = await getEpicChildren(epicKey, maxResults)
-    console.log('[v0] Got', children.length, 'children from JIRA')
     
     // Transform to our internal format
     const transformedChildren = children.map(transformIssue)
-    console.log('[v0] Transformed', transformedChildren.length, 'children')
     
     return NextResponse.json({ 
       epicKey,
