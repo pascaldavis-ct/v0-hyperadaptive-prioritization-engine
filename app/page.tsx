@@ -261,14 +261,33 @@ export default function HyperadaptivePrioritizationEngine() {
   const [incompleteItems, setIncompleteItems] = useState<TransformedIssue[]>([])
   const [isLoadingIncomplete, setIsLoadingIncomplete] = useState(false)
   
-  // Ticket selection
-  const [selectedTicket, setSelectedTicket] = useState<TransformedIssue | null>(null)
-  const [ticketSearchQuery, setTicketSearchQuery] = useState('')
+  // Batch scoring results
+  type BatchResult = {
+    key: string
+    title: string
+    status: string
+    impactScore: number
+    feasibilityScore: number
+    scalabilityScore: number
+    totalScore: number
+    workType: 'enablement' | 'activation'
+    rationale: {
+      impact: string
+      feasibility: string
+      scalability: string
+    }
+    error?: string
+  }
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false)
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 })
+  const [sortColumn, setSortColumn] = useState<'totalScore' | 'impactScore' | 'feasibilityScore' | 'scalabilityScore' | 'key'>('totalScore')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   
-  // Legacy - kept for backward compatibility with context ticket loading
-  const [projectIssues, setProjectIssues] = useState<TransformedIssue[]>([])
+  // Selected result for detailed view
+  const [selectedResult, setSelectedResult] = useState<BatchResult | null>(null)
   
-  // Step 3: Scoring & Analysis
+  // Step 3: Scoring & Analysis (legacy - kept for single ticket mode if needed)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [aiRationale, setAiRationale] = useState<{
     strategic: string
@@ -456,37 +475,23 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Load all issues (for context ticket search - legacy)
-  const loadProjectIssues = async (projectKey: string) => {
-    try {
-      const response = await fetch(`/api/jira/issues?projectKey=${projectKey}`)
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load issues')
-      }
-      
-      setProjectIssues(data.issues)
-    } catch (error) {
-      // Silent fail for legacy function
-    }
-  }
-
   // Handle project selection - auto-load context
   const handleProjectSelect = (projectKey: string) => {
     const project = projects.find(p => p.key === projectKey)
     if (project) {
       setSelectedProject(project)
+      setBatchResults([])
+      setSelectedResult(null)
       loadProjectContext(projectKey)
       loadIncompleteItems(projectKey, selectedIssueType)
-      loadProjectIssues(projectKey) // For manual context ticket search
     }
   }
 
-  // Handle issue type change - reload incomplete items
+  // Handle issue type change - reload incomplete items and clear previous results
   const handleIssueTypeChange = (issueType: 'Epic' | 'Story' | 'Sub-task') => {
     setSelectedIssueType(issueType)
-    setSelectedTicket(null)
+    setBatchResults([])
+    setSelectedResult(null)
     if (selectedProject) {
       loadIncompleteItems(selectedProject.key, issueType)
     }
@@ -632,6 +637,107 @@ export default function HyperadaptivePrioritizationEngine() {
       })
     }
   }, [selectedTicket, hierarchicalContext, toast])
+
+  // Run Batch Analysis for ALL incomplete items
+  const runBatchAnalysis = useCallback(async () => {
+    if (incompleteItems.length === 0) {
+      toast({
+        title: 'No Items to Analyze',
+        description: `No incomplete ${selectedIssueType}s found.`,
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    setIsBatchAnalyzing(true)
+    setBatchResults([])
+    setBatchProgress({ current: 0, total: incompleteItems.length })
+    
+    // Build context for batch analysis
+    const contextParts: string[] = []
+    
+    if (hierarchicalContext.executiveSummaries.length > 0) {
+      contextParts.push('=== EXECUTIVE SUMMARIES ===')
+      hierarchicalContext.executiveSummaries.slice(0, 5).forEach(es => {
+        contextParts.push(`[${es.key}] ${es.title}`)
+      })
+    }
+    
+    if (hierarchicalContext.completedWork.length > 0) {
+      contextParts.push(`\n=== COMPLETED (${hierarchicalContext.completedWork.length} items) ===`)
+      hierarchicalContext.completedWork.slice(0, 10).forEach(item => {
+        contextParts.push(`[${item.key}] ${item.title}`)
+      })
+    }
+    
+    const organizationalContext = contextParts.join('\n')
+    
+    // Prepare tickets for batch API
+    const ticketsToAnalyze = incompleteItems.map(item => ({
+      key: item.key,
+      title: item.title,
+      description: item.description || '',
+      issueType: item.issueType,
+      status: item.status,
+    }))
+    
+    try {
+      const response = await fetch('/api/analyze-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tickets: ticketsToAnalyze,
+          organizationalContext,
+          issueType: selectedIssueType,
+          completedWorkSummary: `${hierarchicalContext.completedWork.length} completed items`,
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Batch analysis failed')
+      }
+      
+      const data = await response.json()
+      setBatchResults(data.results || [])
+      setBatchProgress({ current: data.results?.length || 0, total: incompleteItems.length })
+      
+      toast({
+        title: 'Batch Analysis Complete',
+        description: `Analyzed ${data.summary?.analyzed || 0} of ${data.summary?.total || 0} ${selectedIssueType}s`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Batch Analysis Failed',
+        description: error instanceof Error ? error.message : 'Failed to analyze tickets',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsBatchAnalyzing(false)
+    }
+  }, [incompleteItems, selectedIssueType, hierarchicalContext, toast])
+
+  // Sort batch results
+  const sortedBatchResults = useMemo(() => {
+    return [...batchResults].sort((a, b) => {
+      const aVal = a[sortColumn]
+      const bVal = b[sortColumn]
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      return sortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
+    })
+  }, [batchResults, sortColumn, sortDirection])
+
+  // Handle column sort
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+  }
 
   // Handle score changes
   const handleSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
@@ -997,8 +1103,8 @@ export default function HyperadaptivePrioritizationEngine() {
             </div>
 
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground">Step 2: Select Item to Prioritize</h2>
-              <p className="text-muted-foreground mt-2">Choose an issue type, then select an incomplete item to score</p>
+              <h2 className="text-2xl font-bold text-foreground">Step 2: Batch Prioritization</h2>
+              <p className="text-muted-foreground mt-2">Select an issue type and score all incomplete items at once</p>
             </div>
 
             {/* Context Summary */}
@@ -1091,12 +1197,15 @@ export default function HyperadaptivePrioritizationEngine() {
               </CardContent>
             </Card>
 
-            {/* Ticket Selection */}
+            {/* Batch Scoring */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5 text-primary" />
-                  Select Incomplete {selectedIssueType}
+                  Incomplete {selectedIssueType}s
+                  {incompleteItems.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">{incompleteItems.length}</Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1111,167 +1220,184 @@ export default function HyperadaptivePrioritizationEngine() {
                     <p>No incomplete {selectedIssueType}s found in {selectedProject?.key}.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {/* Search Input */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by title or key..."
-                        value={ticketSearchQuery}
-                        onChange={(e) => setTicketSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
+                  <>
+                    <Button 
+                      onClick={runBatchAnalysis}
+                      className="w-full h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      disabled={isBatchAnalyzing}
+                    >
+                      {isBatchAnalyzing ? (
+                        <>
+                          <Spinner className="mr-2 h-5 w-5" />
+                          Analyzing {batchProgress.current} of {batchProgress.total}...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="mr-2 h-5 w-5" />
+                          Score All {incompleteItems.length} {selectedIssueType}s
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
                     
-                    <Select value={selectedTicket?.key || ''} onValueChange={handleTicketSelect}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder={`Select a ${selectedIssueType} to prioritize...`} />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-80">
-                        {filteredIncompleteItems.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            No items found matching &quot;{ticketSearchQuery}&quot;
-                          </div>
-                        ) : (
-                          filteredIncompleteItems.map((issue) => (
-                            <SelectItem key={issue.key} value={issue.key}>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono text-xs">{issue.key}</Badge>
-                                <Badge 
-                                  variant="secondary" 
-                                  className={`text-xs ${
-                                    issue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                                    issue.status === 'To Do' ? 'bg-gray-100 text-gray-700' :
-                                    'bg-yellow-100 text-yellow-700'
-                                  }`}
-                                >
-                                  {issue.status}
-                                </Badge>
-                                <span className="truncate max-w-md">{issue.title}</span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      {incompleteItems.length} incomplete {selectedIssueType}s available
+                    <p className="text-xs text-muted-foreground text-center">
+                      AI will analyze each item against Executive Summaries and completed work context
                     </p>
-                  </div>
+                  </>
                 )}
-
-                {/* Selected Ticket Preview */}
-                {selectedTicket && (
-                  <Card className="border-2 border-primary/30 bg-primary/5">
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono">{selectedTicket.key}</Badge>
-                          <Badge>{selectedTicket.issueType}</Badge>
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              selectedTicket.statusColor === 'green' ? 'border-emerald-500/50 text-emerald-600' :
-                              selectedTicket.statusColor === 'blue-gray' ? 'border-blue-500/50 text-blue-600' :
-                              'border-yellow-500/50 text-yellow-600'
-                            }
-                          >
-                            {selectedTicket.status}
-                          </Badge>
-                        </div>
-                        <Badge variant="outline">{selectedTicket.priority}</Badge>
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-lg">{selectedTicket.title}</h3>
-                        {selectedTicket.description && (
-                          <p className="mt-2 text-sm text-muted-foreground line-clamp-4">
-                            {selectedTicket.description}
-                          </p>
-                        )}
-                      </div>
-
-                      {(selectedTicket.labels.length > 0 || selectedTicket.components.length > 0) && (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedTicket.labels.map((label) => (
-                            <Badge key={label} variant="secondary" className="text-xs">{label}</Badge>
-                          ))}
-                          {selectedTicket.components.map((comp) => (
-                            <Badge key={comp} variant="outline" className="text-xs">{comp}</Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      {selectedTicket.assignee && (
-                        <p className="text-sm text-muted-foreground">
-                          Assignee: {selectedTicket.assignee}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Initiative Type */}
-                <div className="space-y-2">
-                  <Label>Initiative Type</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant={workType === 'activation' ? 'default' : 'outline'}
-                      onClick={() => setWorkType('activation')}
-                    >
-                      <Zap className="mr-2 h-4 w-4" />
-                      Activation
-                    </Button>
-                    <Button
-                      variant={workType === 'enablement' ? 'default' : 'outline'}
-                      onClick={() => setWorkType('enablement')}
-                    >
-                      <Layers className="mr-2 h-4 w-4" />
-                      Enablement
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Bottleneck Test */}
-                <div className="rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="bottleneck-test"
-                      checked={makes10xFaster}
-                      onCheckedChange={(checked) => setMakes10xFaster(checked as boolean)}
-                    />
-                    <div>
-                      <Label htmlFor="bottleneck-test" className="cursor-pointer font-medium">
-                        The Bottleneck Test
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Does this make the entire process 10x faster?
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={runAnalysis}
-                  className="w-full h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  disabled={!selectedTicket || isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Spinner className="mr-2 h-5 w-5" />
-                      AI Analyzing Strategic Value...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="mr-2 h-5 w-5" />
-                      Run AI Analysis & Synthesis
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
               </CardContent>
             </Card>
+
+            {/* Batch Results Table */}
+            {batchResults.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      Prioritization Results
+                    </div>
+                    <Badge variant="outline">{batchResults.length} items scored</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th 
+                            className="text-left py-3 px-2 cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort('key')}
+                          >
+                            Key {sortColumn === 'key' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
+                          <th className="text-left py-3 px-2">Title</th>
+                          <th 
+                            className="text-center py-3 px-2 cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort('impactScore')}
+                          >
+                            I {sortColumn === 'impactScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
+                          <th 
+                            className="text-center py-3 px-2 cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort('feasibilityScore')}
+                          >
+                            F {sortColumn === 'feasibilityScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
+                          <th 
+                            className="text-center py-3 px-2 cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort('scalabilityScore')}
+                          >
+                            S {sortColumn === 'scalabilityScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
+                          <th 
+                            className="text-center py-3 px-2 cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort('totalScore')}
+                          >
+                            Total {sortColumn === 'totalScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </th>
+                          <th className="text-center py-3 px-2">Archetype</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedBatchResults.map((result) => {
+                          const archetype = getArchetype(result.totalScore, result.impactScore, result.scalabilityScore, result.feasibilityScore, result.workType)
+                          return (
+                            <tr 
+                              key={result.key} 
+                              className="border-b hover:bg-muted/30 cursor-pointer"
+                              onClick={() => setSelectedResult(result)}
+                            >
+                              <td className="py-3 px-2">
+                                <Badge variant="outline" className="font-mono text-xs">{result.key}</Badge>
+                              </td>
+                              <td className="py-3 px-2 max-w-xs truncate" title={result.title}>
+                                {result.title}
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <span className={result.impactScore >= 6 ? 'text-emerald-600 font-medium' : result.impactScore <= 3 ? 'text-red-500' : ''}>
+                                  {result.impactScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <span className={result.feasibilityScore >= 6 ? 'text-emerald-600 font-medium' : result.feasibilityScore <= 3 ? 'text-red-500' : ''}>
+                                  {result.feasibilityScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <span className={result.scalabilityScore >= 6 ? 'text-emerald-600 font-medium' : result.scalabilityScore <= 3 ? 'text-red-500' : ''}>
+                                  {result.scalabilityScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-center font-semibold">
+                                {result.totalScore}
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <Badge className={`${archetype.color} text-white text-xs`}>
+                                  {archetype.name}
+                                </Badge>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Selected Result Detail */}
+            {selectedResult && (
+              <Card className="border-2 border-primary/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-mono">{selectedResult.key}</Badge>
+                      <span className="text-base font-medium truncate max-w-md">{selectedResult.title}</span>
+                    </CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedResult(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold text-amber-500">{selectedResult.impactScore}</p>
+                      <p className="text-xs text-muted-foreground">Impact</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold text-emerald-500">{selectedResult.feasibilityScore}</p>
+                      <p className="text-xs text-muted-foreground">Feasibility</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold text-blue-500">{selectedResult.scalabilityScore}</p>
+                      <p className="text-xs text-muted-foreground">Scalability</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{selectedResult.totalScore}</p>
+                      <p className="text-xs text-muted-foreground">Total (I×F×S)</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="font-medium text-amber-600">Impact Rationale:</p>
+                      <p className="text-muted-foreground">{selectedResult.rationale.impact}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-emerald-600">Feasibility Rationale:</p>
+                      <p className="text-muted-foreground">{selectedResult.rationale.feasibility}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-blue-600">Scalability Rationale:</p>
+                      <p className="text-muted-foreground">{selectedResult.rationale.scalability}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
