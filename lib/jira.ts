@@ -144,16 +144,29 @@ export async function getProjects(): Promise<JiraProject[]> {
   return data.values || []
 }
 
-// Get issues in a project
+// Get issues in a project (using new /search/jql endpoint)
 export async function getProjectIssues(projectKey: string, maxResults = 100): Promise<JiraIssue[]> {
-  const jql = encodeURIComponent(`project = "${projectKey}" ORDER BY updated DESC`)
-  const fields = 'summary,description,issuetype,status,priority,labels,components,created,updated,assignee,reporter,customfield_10016'
+  const jql = `project = "${projectKey}" ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter', 'customfield_10016']
   
+  console.log(`[v0] JIRA API Request: POST /search/jql with JQL: ${jql}`)
+  
+  // Use POST method with the new /search/jql endpoint
   const data = await jiraFetch<JiraSearchResponse>(
-    `/search?jql=${jql}&maxResults=${maxResults}&fields=${fields}`
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
   )
   
-  return data.issues
+  console.log(`[v0] JIRA API Response: Received ${data.issues?.length || 0} issues`)
+  
+  return data.issues || []
 }
 
 // Get a single issue by key
@@ -163,12 +176,21 @@ export async function getIssue(issueKey: string): Promise<JiraIssue> {
   return jiraFetch<JiraIssue>(`/issue/${issueKey}?fields=${fields}`)
 }
 
-// Search issues with JQL
+// Search issues with JQL (using new /search/jql endpoint)
 export async function searchIssues(jql: string, maxResults = 50): Promise<JiraIssue[]> {
-  const fields = 'summary,description,issuetype,status,priority,labels,components,created,updated,assignee,reporter,customfield_10016'
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter', 'customfield_10016']
   
+  // Use POST method with the new /search/jql endpoint
   const data = await jiraFetch<JiraSearchResponse>(
-    `/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields}`
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
   )
   
   return data.issues

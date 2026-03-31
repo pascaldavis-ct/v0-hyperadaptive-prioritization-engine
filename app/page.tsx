@@ -208,6 +208,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [selectedProject, setSelectedProject] = useState<JiraProject | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
+  const [projectSearchQuery, setProjectSearchQuery] = useState('')
   
   // Step 1: Context Input
   const [contextMethod, setContextMethod] = useState<'manual' | 'pdf' | 'ticket'>('manual')
@@ -223,6 +224,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [projectIssues, setProjectIssues] = useState<TransformedIssue[]>([])
   const [isLoadingIssues, setIsLoadingIssues] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState<TransformedIssue | null>(null)
+  const [ticketSearchQuery, setTicketSearchQuery] = useState('')
   
   // Step 3: Scoring & Analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -257,6 +259,27 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Framework visibility
   const [isFrameworkOpen, setIsFrameworkOpen] = useState(true)
+
+  // Filter and sort projects alphabetically
+  const filteredProjects = useMemo(() => {
+    return projects
+      .filter(p => {
+        if (!projectSearchQuery.trim()) return true
+        const query = projectSearchQuery.toLowerCase()
+        return p.name.toLowerCase().includes(query) || p.key.toLowerCase().includes(query)
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [projects, projectSearchQuery])
+
+  // Filter tickets by search query
+  const filteredTickets = useMemo(() => {
+    return projectIssues
+      .filter(t => {
+        if (!ticketSearchQuery.trim()) return true
+        const query = ticketSearchQuery.toLowerCase()
+        return t.title.toLowerCase().includes(query) || t.key.toLowerCase().includes(query)
+      })
+  }, [projectIssues, ticketSearchQuery])
 
   // Load JIRA projects on mount
   useEffect(() => {
@@ -815,25 +838,49 @@ export default function HyperadaptivePrioritizationEngine() {
                     <span className="ml-2 text-muted-foreground">Loading JIRA projects...</span>
                   </div>
                 ) : (
-                  <Select value={selectedProject?.key || ''} onValueChange={handleProjectSelect}>
-                    <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Select a project..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.key} value={project.key}>
-                          <div className="flex items-center gap-2">
-                            {project.avatar && (
-                              <img src={project.avatar} alt="" className="h-5 w-5 rounded" />
-                            )}
-                            <span className="font-mono text-sm">{project.key}</span>
-                            <span className="text-muted-foreground">-</span>
-                            <span>{project.name}</span>
+                  <div className="space-y-3">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search projects by name or key..."
+                        value={projectSearchQuery}
+                        onChange={(e) => setProjectSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    {/* Project Select */}
+                    <Select value={selectedProject?.key || ''} onValueChange={handleProjectSelect}>
+                      <SelectTrigger className="w-full h-12">
+                        <SelectValue placeholder="Select a project..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {filteredProjects.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No projects found matching &quot;{projectSearchQuery}&quot;
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        ) : (
+                          filteredProjects.map((project) => (
+                            <SelectItem key={project.key} value={project.key}>
+                              <div className="flex items-center gap-2">
+                                {project.avatar && (
+                                  <img src={project.avatar} alt="" className="h-5 w-5 rounded" />
+                                )}
+                                <span className="font-mono text-sm">{project.key}</span>
+                                <span className="text-muted-foreground">-</span>
+                                <span>{project.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {projects.length} projects available (sorted A-Z)
+                    </p>
+                  </div>
                 )}
 
                 {selectedProject && (
@@ -1069,21 +1116,44 @@ export default function HyperadaptivePrioritizationEngine() {
                     <p>No issues found in this project.</p>
                   </div>
                 ) : (
-                  <Select value={selectedTicket?.key || ''} onValueChange={handleTicketSelect}>
-                    <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Select a ticket to prioritize..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-80">
-                      {projectIssues.map((issue) => (
-                        <SelectItem key={issue.key} value={issue.key}>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs">{issue.key}</Badge>
-                            <span className="truncate max-w-md">{issue.title}</span>
+                  <div className="space-y-3">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search tickets by title or key..."
+                        value={ticketSearchQuery}
+                        onChange={(e) => setTicketSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    <Select value={selectedTicket?.key || ''} onValueChange={handleTicketSelect}>
+                      <SelectTrigger className="w-full h-12">
+                        <SelectValue placeholder="Select a ticket to prioritize..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-80">
+                        {filteredTickets.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No tickets found matching &quot;{ticketSearchQuery}&quot;
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        ) : (
+                          filteredTickets.map((issue) => (
+                            <SelectItem key={issue.key} value={issue.key}>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="font-mono text-xs">{issue.key}</Badge>
+                                <span className="truncate max-w-md">{issue.title}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {projectIssues.length} tickets available
+                    </p>
+                  </div>
                 )}
 
                 {/* Selected Ticket Preview */}
