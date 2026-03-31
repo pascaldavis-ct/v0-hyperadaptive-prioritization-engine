@@ -420,8 +420,11 @@ export default function HyperadaptivePrioritizationEngine() {
     
     try {
       // Search for tickets containing "Executive Summary" in the title within the selected project
+      console.log('[v0] Searching for Executive Summary tickets in project:', selectedProject.key)
       const response = await fetch(`/api/jira/issues?projectKey=${selectedProject.key}&maxResults=100`)
       const data = await response.json()
+      
+      console.log('[v0] Issues API response:', { ok: response.ok, total: data.issues?.length })
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to search tickets')
@@ -433,6 +436,8 @@ export default function HyperadaptivePrioritizationEngine() {
       const executiveSummaryTickets = issues.filter(issue => 
         issue.title.toLowerCase().includes('executive summary')
       )
+      
+      console.log('[v0] Found Executive Summary tickets:', executiveSummaryTickets.map(t => ({ key: t.key, title: t.title })))
       
       if (executiveSummaryTickets.length === 0) {
         toast({

@@ -4,7 +4,7 @@ import { getProjectIssues, transformIssue } from '@/lib/jira'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const projectKey = searchParams.get('project')
+    const projectKey = searchParams.get('projectKey') || searchParams.get('project')
     const maxResults = parseInt(searchParams.get('maxResults') || '100', 10)
     
     if (!projectKey) {
