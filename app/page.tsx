@@ -230,7 +230,6 @@ export default function HyperadaptivePrioritizationEngine() {
   // Step 1: Context Input
   const [contextMethod, setContextMethod] = useState<'manual' | 'pdf' | 'ticket'>('manual')
   const [clientContext, setClientContext] = useState('')
-  const [contextTitle, setContextTitle] = useState('')
   
   // AI-detected organizational focus (derived from context analysis)
   const [detectedOrganizationalFocus, setDetectedOrganizationalFocus] = useState<string>('')
@@ -375,9 +374,8 @@ export default function HyperadaptivePrioritizationEngine() {
     setCompletedWork([])
     setCompletedByType({})
     setSelectedTicket(null)
-    // Clear previous context when switching projects
+    // Clear previous additional notes when switching projects
     setClientContext('')
-    setContextTitle('')
     
     try {
       const response = await fetch(`/api/jira/context?projectKey=${projectKey}`)
@@ -391,17 +389,8 @@ export default function HyperadaptivePrioritizationEngine() {
       setCompletedWork(data.completedWork || [])
       setCompletedByType(data.completedByType || {})
       
-      // Auto-populate client context with Executive Summaries content
-      if (data.executiveSummaries?.length > 0) {
-        const execSummaryContent = data.executiveSummaries.map((t: TransformedIssue) => 
-          `--- ${t.key}: ${t.title} ---\n${t.description || 'No description'}`
-        ).join('\n\n')
-        setClientContext(execSummaryContent)
-        setContextTitle(`Executive Summary Context (${data.executiveSummaries.length} ticket${data.executiveSummaries.length > 1 ? 's' : ''})`)
-      } else {
-        // No executive summaries found - set default empty state
-        setContextTitle(`No Executive Summaries in ${projectKey}`)
-      }
+      // Context is auto-loaded - no need to populate clientContext
+      // clientContext is now reserved for optional additional notes only
       
       toast({
         title: 'Project Context Loaded',

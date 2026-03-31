@@ -68,33 +68,40 @@ ${issueType === 'Sub-task' ? `This is a **Sub-task** - a smaller piece of work u
 
 ## Scoring Guidelines:
 
-IMPORTANT: Be CRITICAL and DISCRIMINATING. Most tickets should score in the 4-6 range (average). Only exceptional tickets deserve 7+ scores. Reserve 9-10 for truly extraordinary items with explicit evidence.
+**CRITICAL INSTRUCTION**: You MUST be harsh and skeptical. Your default starting point is 4-5 for ALL dimensions. You must SUBTRACT points for missing information, vague language, or lack of evidence. Only ADD points when there is EXPLICIT, CONCRETE evidence in the ticket.
+
+**CALIBRATION**: In any typical backlog:
+- 70% of tickets should score 3-5 (below average to average)
+- 25% of tickets should score 6-7 (above average)
+- 5% of tickets should score 8+ (exceptional - RARE)
+
+If you find yourself giving 7+ scores frequently, you are being too generous.
 
 ### Impact (1-10): Business value and strategic importance
-- 9-10: RARE - Must have explicit evidence of: revenue >$1M impact, C-suite urgency, or company-wide blocker. Requires proof, not assumptions.
-- 7-8: Clear quantified business value stated in ticket, documented ROI, explicit deadline with consequences
-- 5-6: TYPICAL - Standard business value, stated importance without hard metrics, normal priority
-- 3-4: Vague benefits, "nice-to-have" language, no urgency indicators, limited user scope
-- 1-2: No stated business case, unclear purpose, purely technical debt with no user impact
-${issueType === 'Bug' ? '\n**Bug Impact**: Only P0/P1 production-down bugs score 8+. Most bugs are 4-6 unless affecting revenue or large user base.' : ''}
+START AT 4, then adjust:
+- +3-4 points ONLY IF: Explicit revenue figures, named executive sponsor, hard deadline with documented consequences
+- +1-2 points IF: Clear user benefit with scope defined, documented priority from PM
+- -1-2 points IF: Vague "will improve" language, no metrics, no deadline
+- -2-3 points IF: No business case stated, purely internal, unclear who benefits
+${issueType === 'Bug' ? '\n**Bug Impact**: Start at 4. Only production-down P0 bugs affecting revenue get 7+. Most bugs stay 3-5.' : ''}
 
-### Feasibility (1-10): Implementation readiness and complexity  
-- 9-10: RARE - Trivial change (<1 day), exact solution known, zero dependencies, no unknowns
-- 7-8: Clear requirements, familiar technology, team has done similar work recently
-- 5-6: TYPICAL - Standard complexity, some design needed, normal dependencies
-- 3-4: Ambiguous requirements, unfamiliar systems, cross-team dependencies, learning curve
-- 1-2: Major unknowns, requires research/POC, legacy systems, architectural changes needed
-${issueType === 'Bug' ? '\n**Bug Feasibility**: Only obvious single-line fixes score 8+. Root cause investigation = lower scores.' : ''}
+### Feasibility (1-10): Implementation readiness and complexity
+START AT 5, then adjust:
+- +2-3 points ONLY IF: Exact solution documented, <1 day effort, no dependencies, team did identical work before
+- +1 point IF: Clear requirements, familiar tech stack
+- -1-2 points IF: Requirements unclear, unfamiliar systems, multiple dependencies
+- -2-3 points IF: Research needed, cross-team coordination, legacy systems, unknowns
+${issueType === 'Bug' ? '\n**Bug Feasibility**: Start at 5. Only well-isolated, obvious fixes get 7+. Investigation needed = 4 or lower.' : ''}
 
-### Scalability (1-10): Reuse and automation potential
-- 9-10: RARE - Explicitly designed as platform/framework, documented reuse plan, self-service by design
-- 7-8: Component designed for reuse, API/service that multiple teams will consume
-- 5-6: TYPICAL - Standard implementation, could be reused with modification
-- 3-4: Specific to one use case, would need significant rework to reuse
-- 1-2: One-off fix, hardcoded values, no abstraction, single customer/scenario
-${issueType === 'Bug' ? '\n**Bug Scalability**: Bug fixes are typically 3-5 unless addressing systemic issues or adding preventive automation.' : ''}
+### Scalability (1-10): Reuse and automation potential  
+START AT 4, then adjust:
+- +3-4 points ONLY IF: Explicitly designed as reusable platform with documented API/interface
+- +1-2 points IF: Component could serve multiple use cases with minor changes
+- -1-2 points IF: Specific to one team/customer, would need rework to reuse
+- -2-3 points IF: One-off fix, hardcoded values, no abstraction possible
+${issueType === 'Bug' ? '\n**Bug Scalability**: Bug fixes START at 3. Only systemic fixes with automation get 5+. Most bugs are 2-4.' : ''}
 
-DEFAULT ASSUMPTION: If the ticket lacks explicit evidence for a score, default to 5 (average). The burden of proof is on the ticket to justify higher scores.
+**FINAL CHECK**: Before submitting, ask yourself: "Am I being too generous?" If Impact × Feasibility × Scalability > 150, re-evaluate - this should be RARE.
 
 ### Work Type:
 - "enablement": Infrastructure, platforms, APIs, data pipelines, foundational capabilities
