@@ -174,7 +174,7 @@ export async function getIssue(issueKey: string): Promise<JiraIssue> {
 
 // Search issues with JQL (using new /search/jql endpoint)
 export async function searchIssues(jql: string, maxResults = 50): Promise<JiraIssue[]> {
-  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter', 'customfield_10016']
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter', 'customfield_10016', 'parent']
   
   // Use POST method with the new /search/jql endpoint
   const data = await jiraFetch<JiraSearchResponse>(
@@ -190,6 +190,48 @@ export async function searchIssues(jql: string, maxResults = 50): Promise<JiraIs
   )
   
   return data.issues
+}
+
+// Get only Epics in a project
+export async function getProjectEpics(projectKey: string, maxResults = 100): Promise<JiraIssue[]> {
+  const jql = `project = "${projectKey}" AND issuetype = Epic ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
+}
+
+// Get child issues of an Epic (Stories, Tasks, Bugs - excluding Sub-tasks)
+export async function getEpicChildren(epicKey: string, maxResults = 100): Promise<JiraIssue[]> {
+  // "parent" field links issues to their Epic in next-gen projects
+  // "Epic Link" custom field (customfield_10014) is used in classic projects
+  const jql = `(parent = "${epicKey}" OR "Epic Link" = "${epicKey}") AND issuetype NOT IN (Sub-task, "Sub-task") ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter', 'parent']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
 }
 
 // Transform JIRA issue to our internal format for IFS scoring

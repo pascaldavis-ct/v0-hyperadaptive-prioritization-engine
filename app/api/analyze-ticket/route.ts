@@ -20,7 +20,7 @@ const ifsAnalysisSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { ticketContent, organizationalContext, resourceCapacity } = await req.json()
+    const { ticketContent, organizationalContext, resourceCapacity, issueType, parentEpic } = await req.json()
 
     if (!ticketContent) {
       return Response.json(
@@ -31,6 +31,25 @@ export async function POST(req: Request) {
 
     const systemPrompt = `You are an expert business analyst specializing in prioritization frameworks. Your task is to analyze JIRA tickets and provide IFS (Impact-Feasibility-Scalability) scores.
 
+## Issue Type Context:
+${issueType === 'Story' ? `This is a **Story** - a user-facing feature or capability. Focus on:
+- User value and experience impact
+- Feature completeness and acceptance criteria
+- Integration with existing user workflows` : ''}
+${issueType === 'Task' ? `This is a **Task** - a specific piece of work to be done. Focus on:
+- Clear scope and deliverables
+- Technical implementation approach
+- Dependencies and blockers` : ''}
+${issueType === 'Bug' ? `This is a **Bug** - a defect requiring fix. Consider:
+- Severity and user impact (critical bugs = higher impact)
+- Regression risk and test coverage
+- Root cause complexity affects feasibility` : ''}
+${issueType === 'Epic' ? `This is an **Epic** - a large body of work. Consider:
+- Strategic scope and organizational impact
+- Multiple team coordination needs
+- Long-term value and dependencies` : ''}
+${parentEpic ? `\nParent Epic: ${parentEpic} - Consider how this ticket contributes to the Epic's overall goals.` : ''}
+
 ## Scoring Guidelines:
 
 ### Impact (1-10): Business value and strategic importance
@@ -39,6 +58,7 @@ export async function POST(req: Request) {
 - 5-6: Standard business value, indirect benefits, normal priority
 - 3-4: Low business impact, nice-to-have, minimal user impact
 - 1-2: Negligible impact, no clear business case
+${issueType === 'Bug' ? '\n**Bug Impact Modifier**: Critical/blocker bugs should score 8-10, major bugs 6-8, minor bugs 3-5.' : ''}
 
 ### Feasibility (1-10): Implementation readiness and complexity
 - 9-10: Simple implementation, clear requirements, existing patterns/tools, minimal dependencies
@@ -46,6 +66,7 @@ export async function POST(req: Request) {
 - 5-6: Standard complexity, requires design work, multiple dependencies
 - 3-4: Complex implementation, legacy systems, unclear requirements, many dependencies
 - 1-2: Very complex, requires significant research, high technical risk
+${issueType === 'Bug' ? '\n**Bug Feasibility Modifier**: Well-isolated bugs with clear reproduction = higher feasibility. Intermittent or cross-cutting bugs = lower.' : ''}
 
 ### Scalability (1-10): Reuse and automation potential
 - 9-10: Fully automated, reusable across organization, self-service capable
@@ -53,10 +74,12 @@ export async function POST(req: Request) {
 - 5-6: Some reuse potential, manual intervention required
 - 3-4: Limited reuse, mostly one-off solution
 - 1-2: Single-use, no reuse potential
+${issueType === 'Bug' ? '\n**Bug Scalability Modifier**: Fixing root causes that prevent future bugs = higher scalability. One-off fixes = lower.' : ''}
 
 ### Work Type:
 - "enablement": Infrastructure, platforms, APIs, data pipelines, foundational capabilities
 - "activation": Direct feature delivery, customer-facing changes, immediate value
+${issueType === 'Bug' ? '\nNote: Most bugs are "activation" (fixing existing features), unless they involve infrastructure improvements.' : ''}
 
 ${resourceCapacity === 'low' ? '\nNote: Resource capacity is LOW - factor this into feasibility assessment (reduce by 1-2 points if implementation is resource-intensive).' : ''}
 ${resourceCapacity === 'high' ? '\nNote: Resource capacity is HIGH - teams have bandwidth for complex implementations.' : ''}

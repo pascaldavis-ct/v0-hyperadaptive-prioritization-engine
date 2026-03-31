@@ -240,11 +240,20 @@ export default function HyperadaptivePrioritizationEngine() {
   const [isLoadingContextTicket, setIsLoadingContextTicket] = useState(false)
   const [loadedContextTickets, setLoadedContextTickets] = useState<string[]>([])
   
-  // Step 2: Ticket Selection
-  const [projectIssues, setProjectIssues] = useState<TransformedIssue[]>([])
-  const [isLoadingIssues, setIsLoadingIssues] = useState(false)
+  // Step 2: Epic & Ticket Selection
+  const [projectEpics, setProjectEpics] = useState<TransformedIssue[]>([])
+  const [isLoadingEpics, setIsLoadingEpics] = useState(false)
+  const [selectedEpic, setSelectedEpic] = useState<TransformedIssue | null>(null)
+  const [epicSearchQuery, setEpicSearchQuery] = useState('')
+  const [epicComboboxOpen, setEpicComboboxOpen] = useState(false)
+  
+  const [epicChildren, setEpicChildren] = useState<TransformedIssue[]>([])
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState<TransformedIssue | null>(null)
   const [ticketSearchQuery, setTicketSearchQuery] = useState('')
+  
+  // Legacy - kept for backward compatibility with context ticket loading
+  const [projectIssues, setProjectIssues] = useState<TransformedIssue[]>([])
   
   // Step 3: Scoring & Analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -291,15 +300,26 @@ export default function HyperadaptivePrioritizationEngine() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [projects, projectSearchQuery])
 
-  // Filter tickets by search query
+  // Filter Epics by search query
+  const filteredEpics = useMemo(() => {
+    return projectEpics
+      .filter(e => {
+        if (!epicSearchQuery.trim()) return true
+        const query = epicSearchQuery.toLowerCase()
+        return e.title.toLowerCase().includes(query) || e.key.toLowerCase().includes(query)
+      })
+      .sort((a, b) => a.title.localeCompare(b.title))
+  }, [projectEpics, epicSearchQuery])
+
+  // Filter Epic children (tickets) by search query
   const filteredTickets = useMemo(() => {
-    return projectIssues
+    return epicChildren
       .filter(t => {
         if (!ticketSearchQuery.trim()) return true
         const query = ticketSearchQuery.toLowerCase()
         return t.title.toLowerCase().includes(query) || t.key.toLowerCase().includes(query)
       })
-  }, [projectIssues, ticketSearchQuery])
+  }, [epicChildren, ticketSearchQuery])
 
   // Load JIRA projects on mount
   useEffect(() => {
@@ -332,10 +352,71 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Load issues when project is selected
-  const loadProjectIssues = async (projectKey: string) => {
-    setIsLoadingIssues(true)
+  // Load Epics when project is selected
+  const loadProjectEpics = async (projectKey: string) => {
+    setIsLoadingEpics(true)
+    setProjectEpics([])
+    setSelectedEpic(null)
+    setEpicChildren([])
+    setSelectedTicket(null)
     
+    try {
+      const response = await fetch(`/api/jira/epics?projectKey=${projectKey}`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load epics')
+      }
+      
+      setProjectEpics(data.epics)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load epics'
+      toast({
+        title: 'Error Loading Epics',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingEpics(false)
+    }
+  }
+
+  // Load Epic children when Epic is selected
+  const loadEpicChildren = async (epicKey: string) => {
+    setIsLoadingChildren(true)
+    setEpicChildren([])
+    setSelectedTicket(null)
+    
+    try {
+      const response = await fetch(`/api/jira/epics/${epicKey}/children`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load epic children')
+      }
+      
+      setEpicChildren(data.children)
+      
+      if (data.children.length === 0) {
+        toast({
+          title: 'No Child Issues',
+          description: `Epic ${epicKey} has no Stories, Tasks, or Bugs linked to it.`,
+        })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load epic children'
+      toast({
+        title: 'Error Loading Epic Children',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingChildren(false)
+    }
+  }
+
+  // Load all issues (for context ticket search - legacy)
+  const loadProjectIssues = async (projectKey: string) => {
     try {
       const response = await fetch(`/api/jira/issues?projectKey=${projectKey}`)
       const data = await response.json()
@@ -346,14 +427,7 @@ export default function HyperadaptivePrioritizationEngine() {
       
       setProjectIssues(data.issues)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load issues'
-      toast({
-        title: 'Error Loading Issues',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoadingIssues(false)
+      // Silent fail for legacy function
     }
   }
 
@@ -362,7 +436,17 @@ export default function HyperadaptivePrioritizationEngine() {
     const project = projects.find(p => p.key === projectKey)
     if (project) {
       setSelectedProject(project)
-      loadProjectIssues(projectKey)
+      loadProjectEpics(projectKey)
+      loadProjectIssues(projectKey) // For context ticket search
+    }
+  }
+
+  // Handle Epic selection
+  const handleEpicSelect = (epicKey: string) => {
+    const epic = projectEpics.find(e => e.key === epicKey)
+    if (epic) {
+      setSelectedEpic(epic)
+      loadEpicChildren(epicKey)
     }
   }
 
@@ -527,9 +611,9 @@ export default function HyperadaptivePrioritizationEngine() {
     })
   }
 
-  // Handle ticket selection
+  // Handle ticket selection (from Epic children)
   const handleTicketSelect = (ticketKey: string) => {
-    const ticket = projectIssues.find(t => t.key === ticketKey)
+    const ticket = epicChildren.find(t => t.key === ticketKey)
     if (ticket) {
       setSelectedTicket(ticket)
     }
@@ -556,7 +640,7 @@ export default function HyperadaptivePrioritizationEngine() {
     ].filter(Boolean).join('\n')
     
     try {
-      // Call LLM-based analysis API
+      // Call LLM-based analysis API with type-aware scoring
       const response = await fetch('/api/analyze-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -564,6 +648,8 @@ export default function HyperadaptivePrioritizationEngine() {
           ticketContent,
           organizationalContext: clientContext,
           resourceCapacity,
+          issueType: selectedTicket.issueType,
+          parentEpic: selectedEpic ? `${selectedEpic.key}: ${selectedEpic.title}` : null,
         }),
       })
       
@@ -618,7 +704,7 @@ export default function HyperadaptivePrioritizationEngine() {
         variant: 'destructive',
       })
     }
-  }, [selectedTicket, clientContext, resourceCapacity, toast])
+  }, [selectedTicket, selectedEpic, clientContext, resourceCapacity, toast])
 
   // Handle score changes
   const handleSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
@@ -1125,27 +1211,123 @@ export default function HyperadaptivePrioritizationEngine() {
             </div>
 
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground">Step 2: Select Ticket to Prioritize</h2>
-              <p className="text-muted-foreground mt-2">Choose a ticket from {selectedProject?.key} to analyze</p>
+              <h2 className="text-2xl font-bold text-foreground">Step 2: Select Epic &amp; Ticket</h2>
+              <p className="text-muted-foreground mt-2">Choose an Epic, then select a child ticket to prioritize</p>
             </div>
 
+            {/* Epic Selection */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-primary" />
+                  Select Epic
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingEpics ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Spinner className="h-6 w-6" />
+                    <span className="ml-2 text-muted-foreground">Loading epics...</span>
+                  </div>
+                ) : projectEpics.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No Epics found in {selectedProject?.key}.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Epic Search Combobox */}
+                    <Popover open={epicComboboxOpen} onOpenChange={setEpicComboboxOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={epicComboboxOpen}
+                          className="w-full h-12 justify-between"
+                        >
+                          {selectedEpic ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="font-mono text-xs">{selectedEpic.key}</Badge>
+                              <span className="truncate">{selectedEpic.title}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Search and select an Epic...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command>
+                          <CommandInput 
+                            placeholder="Search epics by name or key..." 
+                            value={epicSearchQuery}
+                            onValueChange={setEpicSearchQuery}
+                          />
+                          <CommandList className="max-h-[300px]">
+                            <CommandEmpty>No epics found.</CommandEmpty>
+                            <CommandGroup>
+                              {filteredEpics.map((epic) => (
+                                <CommandItem
+                                  key={epic.key}
+                                  value={`${epic.key} ${epic.title}`}
+                                  onSelect={() => {
+                                    handleEpicSelect(epic.key)
+                                    setEpicComboboxOpen(false)
+                                    setEpicSearchQuery('')
+                                  }}
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      selectedEpic?.key === epic.key ? 'opacity-100' : 'opacity-0'
+                                    }`}
+                                  />
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <Badge variant="secondary" className="font-mono text-xs shrink-0">{epic.key}</Badge>
+                                    <span className="truncate">{epic.title}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {projectEpics.length} Epics available (sorted A-Z)
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Ticket Selection (shows after Epic is selected) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5 text-primary" />
-                  Select Ticket
+                  Select Ticket from Epic
+                  {selectedEpic && (
+                    <Badge variant="outline" className="ml-2 font-mono text-xs">{selectedEpic.key}</Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {isLoadingIssues ? (
+                {!selectedEpic ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ArrowRight className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Select an Epic above to view its child tickets</p>
+                  </div>
+                ) : isLoadingChildren ? (
                   <div className="flex items-center justify-center py-8">
                     <Spinner className="h-6 w-6" />
-                    <span className="ml-2 text-muted-foreground">Loading issues...</span>
+                    <span className="ml-2 text-muted-foreground">Loading tickets from {selectedEpic.key}...</span>
                   </div>
-                ) : projectIssues.length === 0 ? (
+                ) : epicChildren.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No issues found in this project.</p>
+                    <p>No Stories, Tasks, or Bugs found under this Epic.</p>
+                    <p className="text-xs mt-1">Sub-tasks are excluded from prioritization.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1174,6 +1356,7 @@ export default function HyperadaptivePrioritizationEngine() {
                             <SelectItem key={issue.key} value={issue.key}>
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="font-mono text-xs">{issue.key}</Badge>
+                                <Badge variant="secondary" className="text-xs">{issue.issueType}</Badge>
                                 <span className="truncate max-w-md">{issue.title}</span>
                               </div>
                             </SelectItem>
@@ -1183,7 +1366,7 @@ export default function HyperadaptivePrioritizationEngine() {
                     </Select>
                     
                     <p className="text-xs text-muted-foreground">
-                      {projectIssues.length} tickets available
+                      {epicChildren.length} tickets in Epic (Stories, Tasks, Bugs)
                     </p>
                   </div>
                 )}
