@@ -720,7 +720,14 @@ export default function HyperadaptivePrioritizationEngine() {
         throw new Error(errorData.error || 'Analysis failed')
       }
       
-      const { analysis } = await response.json()
+      const data = await response.json()
+      console.log('[v0] Analysis response:', data)
+      
+      if (!data.analysis) {
+        throw new Error('No analysis returned from API')
+      }
+      
+      const { analysis } = data
       
       // Store AI rationale
       setAiRationale({
@@ -894,10 +901,10 @@ export default function HyperadaptivePrioritizationEngine() {
                   <span className="text-sm font-semibold">IFS Scoring Formula</span>
                 </div>
                 <p className="text-sm font-mono text-muted-foreground">
-                  Score = (I × 0.4) + (F × 0.3) + (S × 0.3) + Bonuses
+                  Total Score = I × F × S + Bonuses
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Bonuses: Strategic Alignment (+1), Bottleneck Test (+0.5), 10x Velocity Enablement (+0.5)
+                  Bonuses: Strategic Alignment (+1 to Impact), Bottleneck (+0.5), 10x Velocity (+0.5)
                 </p>
               </div>
               
@@ -910,7 +917,6 @@ export default function HyperadaptivePrioritizationEngine() {
                     <p className="text-xs text-muted-foreground">
                       Does this eliminate the primary Wait State blocking the workflow? Measures business value, urgency, and strategic importance.
                     </p>
-                    <p className="text-xs text-primary mt-1">Weight: 40%</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -920,7 +926,6 @@ export default function HyperadaptivePrioritizationEngine() {
                     <p className="text-xs text-muted-foreground">
                       Are data, APIs, and Human Systems ready to support this today? Measures implementation complexity and resource availability.
                     </p>
-                    <p className="text-xs text-primary mt-1">Weight: 30%</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -930,7 +935,6 @@ export default function HyperadaptivePrioritizationEngine() {
                     <p className="text-xs text-muted-foreground">
                       Can this execute 10,000+ times without new human bottlenecks? Measures reuse potential and automation capabilities.
                     </p>
-                    <p className="text-xs text-primary mt-1">Weight: 30%</p>
                   </div>
                 </div>
               </div>
