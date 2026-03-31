@@ -500,6 +500,20 @@ export default function HyperadaptivePrioritizationEngine() {
     // Impact Signals Detection
     let impactScore = 5
     const impactSignals: string[] = []
+    
+    // JIRA Priority field detection (Priority: Highest, High, Medium, Low, Lowest)
+    if (text.includes('priority: highest') || text.includes('priority: critical')) {
+      impactScore = Math.max(impactScore, 9)
+      impactSignals.push('JIRA Priority: Highest/Critical')
+    } else if (text.includes('priority: high')) {
+      impactScore = Math.max(impactScore, 8)
+      impactSignals.push('JIRA Priority: High')
+    } else if (text.includes('priority: low') || text.includes('priority: lowest')) {
+      impactScore = Math.min(impactScore, 4)
+      impactSignals.push('JIRA Priority: Low')
+    }
+    
+    // Specific keyword signals
     if (text.includes('14-day') || text.includes('14 day') || text.includes('two week')) {
       impactScore = Math.max(impactScore, 9)
       impactSignals.push('critical timeline bottleneck (14-day)')
@@ -508,45 +522,77 @@ export default function HyperadaptivePrioritizationEngine() {
       impactScore = Math.max(impactScore, 10)
       impactSignals.push('severe time sink (336 hours)')
     }
-    if (text.includes('$4m') || text.includes('$4 million') || text.includes('4 million')) {
+    if (text.includes('$4m') || text.includes('$4 million') || text.includes('4 million') || text.includes('million dollar')) {
       impactScore = Math.max(impactScore, 10)
-      impactSignals.push('high-value opportunity ($4M+)')
+      impactSignals.push('high-value opportunity ($M+)')
     }
-    if (text.includes('bottleneck') || text.includes('blocker')) {
+    if (text.includes('bottleneck') || text.includes('blocker') || text.includes('blocked')) {
       impactScore = Math.max(impactScore, 8)
       impactSignals.push('workflow bottleneck identified')
     }
-    if (text.includes('revenue') || text.includes('cost saving') || text.includes('efficiency')) {
+    if (text.includes('revenue') || text.includes('cost saving') || text.includes('efficiency') || text.includes('roi')) {
       impactScore = Math.max(impactScore, 7)
       impactSignals.push('direct business value')
     }
-    if (text.includes('manual') || text.includes('repetitive')) {
+    if (text.includes('manual') || text.includes('repetitive') || text.includes('time-consuming')) {
       impactScore = Math.max(impactScore, 7)
       impactSignals.push('manual process automation potential')
+    }
+    if (text.includes('urgent') || text.includes('asap') || text.includes('immediately')) {
+      impactScore = Math.max(impactScore, 8)
+      impactSignals.push('urgent timeline requirement')
+    }
+    if (text.includes('customer') || text.includes('client') || text.includes('stakeholder')) {
+      impactScore = Math.max(impactScore, 6)
+      impactSignals.push('customer-facing impact')
     }
     
     // Feasibility Signals Detection
     let feasibilityScore = 5
     const feasibilitySignals: string[] = []
-    if (text.includes('technical debt') || text.includes('legacy system')) {
+    
+    // Issue type signals
+    if (text.includes('type: bug') || text.includes('type: defect')) {
+      feasibilityScore = Math.max(feasibilityScore, 7)
+      feasibilitySignals.push('bug fix (typically straightforward)')
+    }
+    if (text.includes('type: epic')) {
+      feasibilityScore = Math.min(feasibilityScore, 5)
+      feasibilitySignals.push('epic (large scope)')
+    }
+    if (text.includes('type: task') || text.includes('type: sub-task')) {
+      feasibilityScore = Math.max(feasibilityScore, 7)
+      feasibilitySignals.push('well-defined task scope')
+    }
+    
+    // Complexity signals
+    if (text.includes('technical debt') || text.includes('legacy system') || text.includes('legacy')) {
       feasibilityScore = Math.min(feasibilityScore, 4)
       feasibilitySignals.push('technical debt concerns')
     }
-    if (text.includes('complex integration') || text.includes('enterprise system')) {
+    if (text.includes('complex integration') || text.includes('enterprise system') || text.includes('complex')) {
       feasibilityScore = Math.min(feasibilityScore, 5)
       feasibilitySignals.push('complex integration required')
     }
-    if (text.includes('ready to deploy') || text.includes('plug and play') || text.includes('simple')) {
+    if (text.includes('ready to deploy') || text.includes('plug and play') || text.includes('simple') || text.includes('straightforward')) {
       feasibilityScore = Math.max(feasibilityScore, 9)
       feasibilitySignals.push('high deployment readiness')
     }
-    if (text.includes('api available') || text.includes('existing data') || text.includes('structured data')) {
-      feasibilityScore = Math.max(feasibilityScore, 8)
+    if (text.includes('api available') || text.includes('existing data') || text.includes('structured data') || text.includes('api')) {
+      feasibilityScore = Math.max(feasibilityScore, 7)
       feasibilitySignals.push('data infrastructure ready')
     }
-    if (text.includes('poc') || text.includes('proof of concept') || text.includes('prototype')) {
+    if (text.includes('poc') || text.includes('proof of concept') || text.includes('prototype') || text.includes('spike')) {
       feasibilityScore = Math.max(feasibilityScore, 7)
       feasibilitySignals.push('prior validation exists')
+    }
+    if (text.includes('status: done') || text.includes('status: closed')) {
+      feasibilityScore = Math.max(feasibilityScore, 10)
+      feasibilitySignals.push('already completed')
+    }
+    if (text.includes('status: in progress') || text.includes('status: in development')) {
+      feasibilityScore = Math.max(feasibilityScore, 8)
+      feasibilitySignals.push('work already started')
     }
     
     // Resource capacity adjustment
@@ -561,25 +607,39 @@ export default function HyperadaptivePrioritizationEngine() {
     // Scalability Signals Detection
     let scalabilityScore = 5
     const scalabilitySignals: string[] = []
-    if (text.includes('autonomous') || text.includes('self-service') || text.includes('automated')) {
+    
+    // Automation signals
+    if (text.includes('autonomous') || text.includes('self-service') || text.includes('automated') || text.includes('automation')) {
       scalabilityScore = Math.max(scalabilityScore, 9)
       scalabilitySignals.push('autonomous operation potential')
     }
-    if (text.includes('50,000') || text.includes('50000') || text.includes('high volume')) {
+    if (text.includes('50,000') || text.includes('50000') || text.includes('high volume') || text.includes('bulk')) {
       scalabilityScore = Math.max(scalabilityScore, 10)
-      scalabilitySignals.push('high-volume processing (50,000+)')
+      scalabilitySignals.push('high-volume processing')
     }
-    if (text.includes('global') || text.includes('multi-region') || text.includes('enterprise-wide')) {
+    if (text.includes('global') || text.includes('multi-region') || text.includes('enterprise-wide') || text.includes('cross-team')) {
       scalabilityScore = Math.max(scalabilityScore, 9)
       scalabilitySignals.push('global deployment scope')
     }
-    if (text.includes('reusable') || text.includes('template') || text.includes('modular')) {
+    if (text.includes('reusable') || text.includes('template') || text.includes('modular') || text.includes('component') || text.includes('library')) {
       scalabilityScore = Math.max(scalabilityScore, 8)
       scalabilitySignals.push('reusable component architecture')
     }
-    if (text.includes('one-off') || text.includes('single use') || text.includes('pilot only')) {
-      scalabilityScore = Math.min(scalabilityScore, 3)
+    if (text.includes('one-off') || text.includes('single use') || text.includes('pilot only') || text.includes('prototype')) {
+      scalabilityScore = Math.min(scalabilityScore, 4)
       scalabilitySignals.push('limited reuse potential')
+    }
+    if (text.includes('ai') || text.includes('machine learning') || text.includes('ml') || text.includes('llm')) {
+      scalabilityScore = Math.max(scalabilityScore, 8)
+      scalabilitySignals.push('AI/ML scaling potential')
+    }
+    if (text.includes('workflow') || text.includes('pipeline') || text.includes('process')) {
+      scalabilityScore = Math.max(scalabilityScore, 7)
+      scalabilitySignals.push('workflow automation')
+    }
+    if (text.includes('integration') || text.includes('connector') || text.includes('sync')) {
+      scalabilityScore = Math.max(scalabilityScore, 7)
+      scalabilitySignals.push('system integration potential')
     }
     
     // Detect work type
@@ -629,8 +689,30 @@ export default function HyperadaptivePrioritizationEngine() {
     // Simulate AI "thinking" time for UX
     await new Promise(resolve => setTimeout(resolve, 1500))
     
-    const description = `${selectedTicket.title}\n${selectedTicket.description || ''}`
+    // Include more ticket metadata in the analysis for better scoring
+    const ticketMetadata = [
+      selectedTicket.title,
+      selectedTicket.description || '',
+      `Priority: ${selectedTicket.priority}`,
+      `Type: ${selectedTicket.issueType}`,
+      `Status: ${selectedTicket.status}`,
+      selectedTicket.labels.length > 0 ? `Labels: ${selectedTicket.labels.join(', ')}` : '',
+      selectedTicket.components.length > 0 ? `Components: ${selectedTicket.components.join(', ')}` : '',
+    ].filter(Boolean).join('\n')
+    
+    const description = ticketMetadata
+    console.log('[v0] Running analysis on ticket:', selectedTicket.key)
+    console.log('[v0] Full ticket metadata for analysis:', description)
+    console.log('[v0] Client context:', clientContext)
+    
     const result = analyzeInitiativeStrategicValue(description, clientContext)
+    
+    console.log('[v0] AI Analysis result:', {
+      impactScore: result.impactScore,
+      feasibilityScore: result.feasibilityScore,
+      scalabilityScore: result.scalabilityScore,
+      detectedWorkType: result.detectedWorkType,
+    })
     
     // Store AI rationale
     setAiRationale({
@@ -649,6 +731,9 @@ export default function HyperadaptivePrioritizationEngine() {
     })
     
     // Set sliders to AI-recommended positions
+    console.log('[v0] Setting scores - Impact:', result.impactScore, 'Feasibility:', result.feasibilityScore, 'Scalability:', result.scalabilityScore)
+    console.log('[v0] Expected totalScore:', result.impactScore * result.feasibilityScore * result.scalabilityScore)
+    
     setImpact(result.impactScore)
     setFeasibility(result.feasibilityScore)
     setScalability(result.scalabilityScore)
