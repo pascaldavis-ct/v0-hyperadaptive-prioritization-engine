@@ -337,7 +337,7 @@ export default function HyperadaptivePrioritizationEngine() {
     setIsLoadingIssues(true)
     
     try {
-      const response = await fetch(`/api/jira/issues?project=${projectKey}`)
+      const response = await fetch(`/api/jira/issues?projectKey=${projectKey}`)
       const data = await response.json()
       
       if (!response.ok) {
