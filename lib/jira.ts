@@ -235,6 +235,113 @@ export async function getEpicChildren(epicKey: string, maxResults = 100): Promis
   return data.issues || []
 }
 
+// Issue type hierarchy for context building
+export const ISSUE_TYPE_HIERARCHY = {
+  'Epic': { level: 0, parents: [] },
+  'Story': { level: 1, parents: ['Epic'] },
+  'Task': { level: 1, parents: ['Epic'] },
+  'Bug': { level: 1, parents: ['Epic'] },
+  'Sub-task': { level: 2, parents: ['Story', 'Task', 'Epic'] },
+} as const
+
+export type PrioritizableIssueType = 'Epic' | 'Story' | 'Sub-task'
+
+// Get Executive Summary tickets from a project (any status)
+export async function getExecutiveSummaryTickets(projectKey: string, maxResults = 50): Promise<JiraIssue[]> {
+  const jql = `project = "${projectKey}" AND summary ~ "Executive Summary" ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
+}
+
+// Get completed items by issue type(s)
+// Status category "done" includes Done, Closed, Resolved, etc.
+export async function getCompletedItems(projectKey: string, issueTypes: string[], maxResults = 200): Promise<JiraIssue[]> {
+  const typesList = issueTypes.map(t => `"${t}"`).join(', ')
+  const jql = `project = "${projectKey}" AND issuetype IN (${typesList}) AND statusCategory = Done ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
+}
+
+// Get incomplete items by issue type
+export async function getIncompleteItems(projectKey: string, issueType: string, maxResults = 100): Promise<JiraIssue[]> {
+  const jql = `project = "${projectKey}" AND issuetype = "${issueType}" AND statusCategory != Done ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
+}
+
+// Get all completed work for a project (all types)
+export async function getAllCompletedWork(projectKey: string, maxResults = 300): Promise<JiraIssue[]> {
+  const jql = `project = "${projectKey}" AND statusCategory = Done ORDER BY updated DESC`
+  const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  const data = await jiraFetch<JiraSearchResponse>(
+    '/search/jql',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        jql,
+        maxResults,
+        fields,
+      }),
+    }
+  )
+  
+  return data.issues || []
+}
+
+// Build hierarchical context based on issue type being scored
+export function getContextIssueTypes(issueType: PrioritizableIssueType): string[] {
+  switch (issueType) {
+    case 'Epic':
+      return ['Epic']
+    case 'Story':
+      return ['Story', 'Task', 'Epic'] // Stories + parent Epics
+    case 'Sub-task':
+      return ['Sub-task', 'Story', 'Task', 'Epic'] // Sub-tasks + parent Stories + grandparent Epics
+    default:
+      return [issueType]
+  }
+}
+
 // Transform JIRA issue to our internal format for IFS scoring
 export interface TransformedIssue {
   key: string

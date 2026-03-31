@@ -43,6 +43,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Check,
+  CheckSquare,
   Database,
   FileEdit,
   Search,
@@ -240,15 +241,19 @@ export default function HyperadaptivePrioritizationEngine() {
   const [isLoadingContextTicket, setIsLoadingContextTicket] = useState(false)
   const [loadedContextTickets, setLoadedContextTickets] = useState<string[]>([])
   
-  // Step 2: Epic & Ticket Selection
-  const [projectEpics, setProjectEpics] = useState<TransformedIssue[]>([])
-  const [isLoadingEpics, setIsLoadingEpics] = useState(false)
-  const [selectedEpic, setSelectedEpic] = useState<TransformedIssue | null>(null)
-  const [epicSearchQuery, setEpicSearchQuery] = useState('')
-  const [epicComboboxOpen, setEpicComboboxOpen] = useState(false)
+  // Step 2: Context & Ticket Selection (Hierarchical)
+  // Auto-loaded context data
+  const [executiveSummaries, setExecutiveSummaries] = useState<TransformedIssue[]>([])
+  const [completedWork, setCompletedWork] = useState<TransformedIssue[]>([])
+  const [completedByType, setCompletedByType] = useState<Record<string, TransformedIssue[]>>({})
+  const [isLoadingContext, setIsLoadingContext] = useState(false)
   
-  const [epicChildren, setEpicChildren] = useState<TransformedIssue[]>([])
-  const [isLoadingChildren, setIsLoadingChildren] = useState(false)
+  // Issue type selection for prioritization
+  const [selectedIssueType, setSelectedIssueType] = useState<'Epic' | 'Story' | 'Sub-task'>('Story')
+  const [incompleteItems, setIncompleteItems] = useState<TransformedIssue[]>([])
+  const [isLoadingIncomplete, setIsLoadingIncomplete] = useState(false)
+  
+  // Ticket selection
   const [selectedTicket, setSelectedTicket] = useState<TransformedIssue | null>(null)
   const [ticketSearchQuery, setTicketSearchQuery] = useState('')
   
@@ -300,26 +305,42 @@ export default function HyperadaptivePrioritizationEngine() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [projects, projectSearchQuery])
 
-  // Filter Epics by search query
-  const filteredEpics = useMemo(() => {
-    return projectEpics
-      .filter(e => {
-        if (!epicSearchQuery.trim()) return true
-        const query = epicSearchQuery.toLowerCase()
-        return e.title.toLowerCase().includes(query) || e.key.toLowerCase().includes(query)
-      })
-      .sort((a, b) => a.title.localeCompare(b.title))
-  }, [projectEpics, epicSearchQuery])
-
-  // Filter Epic children (tickets) by search query
-  const filteredTickets = useMemo(() => {
-    return epicChildren
+  // Filter incomplete items by search query
+  const filteredIncompleteItems = useMemo(() => {
+    return incompleteItems
       .filter(t => {
         if (!ticketSearchQuery.trim()) return true
         const query = ticketSearchQuery.toLowerCase()
         return t.title.toLowerCase().includes(query) || t.key.toLowerCase().includes(query)
       })
-  }, [epicChildren, ticketSearchQuery])
+      .sort((a, b) => a.title.localeCompare(b.title))
+  }, [incompleteItems, ticketSearchQuery])
+
+  // Build hierarchical context based on selected issue type
+  const hierarchicalContext = useMemo(() => {
+    // Get the types needed for context based on what we're scoring
+    const getContextTypes = (issueType: 'Epic' | 'Story' | 'Sub-task'): string[] => {
+      switch (issueType) {
+        case 'Epic':
+          return ['Epic']
+        case 'Story':
+          return ['Story', 'Task', 'Epic']
+        case 'Sub-task':
+          return ['Sub-task', 'Story', 'Task', 'Epic']
+      }
+    }
+    
+    const contextTypes = getContextTypes(selectedIssueType)
+    const relevantCompleted = completedWork.filter(item => 
+      contextTypes.includes(item.issueType)
+    )
+    
+    return {
+      executiveSummaries,
+      completedWork: relevantCompleted,
+      contextTypes,
+    }
+  }, [selectedIssueType, executiveSummaries, completedWork])
 
   // Load JIRA projects on mount
   useEffect(() => {
@@ -352,70 +373,83 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Load Epics when project is selected
-  const loadProjectEpics = async (projectKey: string) => {
-    setIsLoadingEpics(true)
-    setProjectEpics([])
-    setSelectedEpic(null)
-    setEpicChildren([])
+  // Load project context (Executive Summaries + Completed Work) when project is selected
+  const loadProjectContext = async (projectKey: string) => {
+    setIsLoadingContext(true)
+    setExecutiveSummaries([])
+    setCompletedWork([])
+    setCompletedByType({})
     setSelectedTicket(null)
     
     try {
-      const response = await fetch(`/api/jira/epics?projectKey=${projectKey}`)
+      const response = await fetch(`/api/jira/context?projectKey=${projectKey}`)
       const data = await response.json()
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to load epics')
+        throw new Error(data.error || 'Failed to load project context')
       }
       
-      setProjectEpics(data.epics || [])
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load epics'
+      setExecutiveSummaries(data.executiveSummaries || [])
+      setCompletedWork(data.completedWork || [])
+      setCompletedByType(data.completedByType || {})
+      
+      // Auto-populate client context with Executive Summaries content
+      if (data.executiveSummaries?.length > 0) {
+        const execSummaryContent = data.executiveSummaries.map((t: TransformedIssue) => 
+          `--- ${t.key}: ${t.title} ---\n${t.description || 'No description'}`
+        ).join('\n\n')
+        setClientContext(execSummaryContent)
+        setContextTitle(`Executive Summary Context (${data.executiveSummaries.length} ticket${data.executiveSummaries.length > 1 ? 's' : ''})`)
+        setLoadedContextTickets(data.executiveSummaries.map((t: TransformedIssue) => t.key))
+      }
+      
       toast({
-        title: 'Error Loading Epics',
+        title: 'Project Context Loaded',
+        description: `${data.executiveSummaries?.length || 0} Executive Summaries, ${data.completedWork?.length || 0} completed items`,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load context'
+      toast({
+        title: 'Error Loading Context',
         description: message,
         variant: 'destructive',
       })
     } finally {
-      setIsLoadingEpics(false)
+      setIsLoadingContext(false)
     }
   }
 
-  // Load Epic children when Epic is selected
-  const loadEpicChildren = async (epicKey: string) => {
-    console.log('[v0] loadEpicChildren called with:', epicKey)
-    setIsLoadingChildren(true)
-    setEpicChildren([])
+  // Load incomplete items when issue type is selected
+  const loadIncompleteItems = async (projectKey: string, issueType: string) => {
+    setIsLoadingIncomplete(true)
+    setIncompleteItems([])
     setSelectedTicket(null)
     
     try {
-      console.log('[v0] Fetching children from:', `/api/jira/epics/${epicKey}/children`)
-      const response = await fetch(`/api/jira/epics/${epicKey}/children`)
+      const response = await fetch(`/api/jira/incomplete?projectKey=${projectKey}&issueType=${issueType}`)
       const data = await response.json()
       
-      console.log('[v0] Epic children response:', { ok: response.ok, count: data.children?.length, error: data.error })
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to load epic children')
+        throw new Error(data.error || 'Failed to load incomplete items')
       }
       
-      setEpicChildren(data.children || [])
+      setIncompleteItems(data.items || [])
       
-      if (data.children.length === 0) {
+      if ((data.items || []).length === 0) {
         toast({
-          title: 'No Child Issues',
-          description: `Epic ${epicKey} has no Stories, Tasks, or Bugs linked to it.`,
+          title: `No Incomplete ${issueType}s`,
+          description: `All ${issueType}s in this project are completed.`,
         })
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load epic children'
+      const message = error instanceof Error ? error.message : 'Failed to load items'
       toast({
-        title: 'Error Loading Epic Children',
+        title: 'Error Loading Items',
         description: message,
         variant: 'destructive',
       })
     } finally {
-      setIsLoadingChildren(false)
+      setIsLoadingIncomplete(false)
     }
   }
 
@@ -435,24 +469,23 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Handle project selection
+  // Handle project selection - auto-load context
   const handleProjectSelect = (projectKey: string) => {
     const project = projects.find(p => p.key === projectKey)
     if (project) {
       setSelectedProject(project)
-      loadProjectEpics(projectKey)
-      loadProjectIssues(projectKey) // For context ticket search
+      loadProjectContext(projectKey)
+      loadIncompleteItems(projectKey, selectedIssueType)
+      loadProjectIssues(projectKey) // For manual context ticket search
     }
   }
 
-  // Handle Epic selection
-  const handleEpicSelect = (epicKey: string) => {
-    console.log('[v0] handleEpicSelect called with:', epicKey)
-    const epic = projectEpics.find(e => e.key === epicKey)
-    console.log('[v0] Found epic:', epic?.key, epic?.title)
-    if (epic) {
-      setSelectedEpic(epic)
-      loadEpicChildren(epicKey)
+  // Handle issue type change - reload incomplete items
+  const handleIssueTypeChange = (issueType: 'Epic' | 'Story' | 'Sub-task') => {
+    setSelectedIssueType(issueType)
+    setSelectedTicket(null)
+    if (selectedProject) {
+      loadIncompleteItems(selectedProject.key, issueType)
     }
   }
 
@@ -617,9 +650,9 @@ export default function HyperadaptivePrioritizationEngine() {
     })
   }
 
-  // Handle ticket selection (from Epic children)
+  // Handle ticket selection (from incomplete items)
   const handleTicketSelect = (ticketKey: string) => {
-    const ticket = epicChildren.find(t => t.key === ticketKey)
+    const ticket = incompleteItems.find(t => t.key === ticketKey)
     if (ticket) {
       setSelectedTicket(ticket)
     }
@@ -646,16 +679,39 @@ export default function HyperadaptivePrioritizationEngine() {
     ].filter(Boolean).join('\n')
     
     try {
-      // Call LLM-based analysis API with type-aware scoring
+      // Build hierarchical context for LLM
+      // Include Executive Summaries + completed work of same type and parent types
+      const contextParts: string[] = []
+      
+      // Add Executive Summary context
+      if (hierarchicalContext.executiveSummaries.length > 0) {
+        contextParts.push('=== EXECUTIVE SUMMARIES (Strategic Priorities) ===')
+        hierarchicalContext.executiveSummaries.forEach(es => {
+          contextParts.push(`[${es.key}] ${es.title}\n${es.description || 'No description'}`)
+        })
+      }
+      
+      // Add completed work context (hierarchical based on issue type)
+      if (hierarchicalContext.completedWork.length > 0) {
+        contextParts.push(`\n=== COMPLETED WORK (${hierarchicalContext.contextTypes.join(', ')}) ===`)
+        contextParts.push(`(${hierarchicalContext.completedWork.length} items completed - showing first 20)`)
+        hierarchicalContext.completedWork.slice(0, 20).forEach(item => {
+          contextParts.push(`[${item.key}] [${item.issueType}] ${item.title}`)
+        })
+      }
+      
+      const fullContext = contextParts.join('\n')
+      
+      // Call LLM-based analysis API with type-aware scoring and hierarchical context
       const response = await fetch('/api/analyze-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketContent,
-          organizationalContext: clientContext,
+          organizationalContext: fullContext,
           resourceCapacity,
           issueType: selectedTicket.issueType,
-          parentEpic: selectedEpic ? `${selectedEpic.key}: ${selectedEpic.title}` : null,
+          completedWorkSummary: `${hierarchicalContext.completedWork.length} completed ${hierarchicalContext.contextTypes.join('/')} items`,
         }),
       })
       
@@ -710,7 +766,7 @@ export default function HyperadaptivePrioritizationEngine() {
         variant: 'destructive',
       })
     }
-  }, [selectedTicket, selectedEpic, clientContext, resourceCapacity, toast])
+  }, [selectedTicket, hierarchicalContext, resourceCapacity, toast])
 
   // Handle score changes
   const handleSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
@@ -829,34 +885,52 @@ export default function HyperadaptivePrioritizationEngine() {
 
         {/* IFS Framework Panel */}
         {isFrameworkOpen && (
-          <div className="border-t bg-muted/50 px-4 py-3">
+          <div className="border-t bg-muted/50 px-4 py-4">
             <div className="container">
+              {/* Scoring Formula */}
+              <div className="mb-4 p-3 rounded-lg bg-background/80 border">
+                <div className="flex items-center gap-2 mb-2">
+                  <FlaskConical className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">IFS Scoring Formula</span>
+                </div>
+                <p className="text-sm font-mono text-muted-foreground">
+                  Score = (I × 0.4) + (F × 0.3) + (S × 0.3) + Bonuses
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bonuses: Strategic Alignment (+1), Bottleneck Test (+0.5), 10x Velocity Enablement (+0.5)
+                </p>
+              </div>
+              
+              {/* Dimension Descriptions */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="flex items-start gap-2">
-                  <Zap className="mt-0.5 h-4 w-4 text-primary" />
+                  <Zap className="mt-0.5 h-4 w-4 text-amber-500" />
                   <div>
-                    <p className="text-sm font-medium">Impact (Systemic Flow)</p>
+                    <p className="text-sm font-medium">Impact (I) - Systemic Flow</p>
                     <p className="text-xs text-muted-foreground">
-                      Does this eliminate the primary Wait State blocking the workflow?
+                      Does this eliminate the primary Wait State blocking the workflow? Measures business value, urgency, and strategic importance.
                     </p>
+                    <p className="text-xs text-primary mt-1">Weight: 40%</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Target className="mt-0.5 h-4 w-4 text-primary" />
+                  <Target className="mt-0.5 h-4 w-4 text-emerald-500" />
                   <div>
-                    <p className="text-sm font-medium">Feasibility (Readiness)</p>
+                    <p className="text-sm font-medium">Feasibility (F) - Readiness</p>
                     <p className="text-xs text-muted-foreground">
-                      Are data, APIs, and Human Systems ready to support this today?
+                      Are data, APIs, and Human Systems ready to support this today? Measures implementation complexity and resource availability.
                     </p>
+                    <p className="text-xs text-primary mt-1">Weight: 30%</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <TrendingUp className="mt-0.5 h-4 w-4 text-primary" />
+                  <TrendingUp className="mt-0.5 h-4 w-4 text-blue-500" />
                   <div>
-                    <p className="text-sm font-medium">Scalability (Velocity)</p>
+                    <p className="text-sm font-medium">Scalability (S) - Velocity</p>
                     <p className="text-xs text-muted-foreground">
-                      Can this execute 10,000+ times without new human bottlenecks?
+                      Can this execute 10,000+ times without new human bottlenecks? Measures reuse potential and automation capabilities.
                     </p>
+                    <p className="text-xs text-primary mt-1">Weight: 30%</p>
                   </div>
                 </div>
               </div>
@@ -979,14 +1053,14 @@ export default function HyperadaptivePrioritizationEngine() {
                       <span className="font-medium">{selectedProject.name}</span>
                       <Badge variant="outline" className="font-mono">{selectedProject.key}</Badge>
                     </div>
-                    {isLoadingEpics ? (
+                    {isLoadingContext ? (
                       <p className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
                         <Spinner className="h-3 w-3" />
-                        Loading epics...
+                        Loading project context...
                       </p>
                     ) : (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {projectEpics.length} epics available for prioritization
+                        {executiveSummaries.length} Executive Summaries, {completedWork.length} completed items loaded
                       </p>
                     )}
                   </div>
@@ -1217,123 +1291,118 @@ export default function HyperadaptivePrioritizationEngine() {
             </div>
 
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground">Step 2: Select Epic &amp; Ticket</h2>
-              <p className="text-muted-foreground mt-2">Choose an Epic, then select a child ticket to prioritize</p>
+              <h2 className="text-2xl font-bold text-foreground">Step 2: Select Item to Prioritize</h2>
+              <p className="text-muted-foreground mt-2">Choose an issue type, then select an incomplete item to score</p>
             </div>
 
-            {/* Epic Selection */}
+            {/* Context Summary */}
+            {isLoadingContext ? (
+              <Card className="mb-6">
+                <CardContent className="py-8">
+                  <div className="flex items-center justify-center">
+                    <Spinner className="h-6 w-6" />
+                    <span className="ml-2 text-muted-foreground">Loading project context...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="mb-6 border-blue-500/20 bg-blue-500/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    Loaded Context
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Executive Summaries:</span>
+                      <span className="ml-2 font-medium">{executiveSummaries.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Completed Work:</span>
+                      <span className="ml-2 font-medium">{completedWork.length}</span>
+                    </div>
+                  </div>
+                  {Object.keys(completedByType).length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {Object.entries(completedByType).map(([type, items]) => (
+                        <Badge key={type} variant="secondary" className="text-xs">
+                          {type}: {items.length} done
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Issue Type Selection */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Layers className="h-5 w-5 text-primary" />
-                  Select Epic
+                  Select Issue Type to Prioritize
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingEpics ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Spinner className="h-6 w-6" />
-                    <span className="ml-2 text-muted-foreground">Loading epics...</span>
-                  </div>
-                ) : projectEpics.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No Epics found in {selectedProject?.key}.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Epic Search Combobox */}
-                    <Popover open={epicComboboxOpen} onOpenChange={setEpicComboboxOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={epicComboboxOpen}
-                          className="w-full h-12 justify-between"
-                        >
-                          {selectedEpic ? (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary" className="font-mono text-xs">{selectedEpic.key}</Badge>
-                              <span className="truncate">{selectedEpic.title}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Search and select an Epic...</span>
-                          )}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                        <Command>
-                          <CommandInput 
-                            placeholder="Search epics by name or key..." 
-                            value={epicSearchQuery}
-                            onValueChange={setEpicSearchQuery}
-                          />
-                          <CommandList className="max-h-[300px]">
-                            <CommandEmpty>No epics found.</CommandEmpty>
-                            <CommandGroup>
-                              {filteredEpics.map((epic) => (
-                                <CommandItem
-                                  key={epic.key}
-                                  value={`${epic.key} ${epic.title}`}
-                                  onSelect={() => {
-                                    handleEpicSelect(epic.key)
-                                    setEpicComboboxOpen(false)
-                                    setEpicSearchQuery('')
-                                  }}
-                                >
-                                  <Check
-                                    className={`mr-2 h-4 w-4 ${
-                                      selectedEpic?.key === epic.key ? 'opacity-100' : 'opacity-0'
-                                    }`}
-                                  />
-                                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <Badge variant="secondary" className="font-mono text-xs shrink-0">{epic.key}</Badge>
-                                    <span className="truncate">{epic.title}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      {projectEpics.length} Epics available (sorted A-Z)
-                    </p>
-                  </div>
-                )}
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    variant={selectedIssueType === 'Epic' ? 'default' : 'outline'}
+                    onClick={() => handleIssueTypeChange('Epic')}
+                    className="h-16 flex-col"
+                  >
+                    <Layers className="h-5 w-5 mb-1" />
+                    <span>Epic</span>
+                    <span className="text-xs opacity-70">Strategic</span>
+                  </Button>
+                  <Button
+                    variant={selectedIssueType === 'Story' ? 'default' : 'outline'}
+                    onClick={() => handleIssueTypeChange('Story')}
+                    className="h-16 flex-col"
+                  >
+                    <FileText className="h-5 w-5 mb-1" />
+                    <span>Story</span>
+                    <span className="text-xs opacity-70">Feature</span>
+                  </Button>
+                  <Button
+                    variant={selectedIssueType === 'Sub-task' ? 'default' : 'outline'}
+                    onClick={() => handleIssueTypeChange('Sub-task')}
+                    className="h-16 flex-col"
+                  >
+                    <CheckSquare className="h-5 w-5 mb-1" />
+                    <span>Sub-task</span>
+                    <span className="text-xs opacity-70">Detail</span>
+                  </Button>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Context will include: Executive Summaries + Completed {
+                    selectedIssueType === 'Epic' ? 'Epics' :
+                    selectedIssueType === 'Story' ? 'Stories, Tasks & Epics' :
+                    'Sub-tasks, Stories, Tasks & Epics'
+                  }
+                </p>
               </CardContent>
             </Card>
 
-            {/* Ticket Selection (shows after Epic is selected) */}
+            {/* Ticket Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5 text-primary" />
-                  Select Ticket from Epic
-                  {selectedEpic && (
-                    <Badge variant="outline" className="ml-2 font-mono text-xs">{selectedEpic.key}</Badge>
-                  )}
+                  Select Incomplete {selectedIssueType}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!selectedEpic ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ArrowRight className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Select an Epic above to view its child tickets</p>
-                  </div>
-                ) : isLoadingChildren ? (
+                {isLoadingIncomplete ? (
                   <div className="flex items-center justify-center py-8">
                     <Spinner className="h-6 w-6" />
-                    <span className="ml-2 text-muted-foreground">Loading tickets from {selectedEpic.key}...</span>
+                    <span className="ml-2 text-muted-foreground">Loading {selectedIssueType}s...</span>
                   </div>
-                ) : epicChildren.length === 0 ? (
+                ) : incompleteItems.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No Stories, Tasks, or Bugs found under this Epic.</p>
-                    <p className="text-xs mt-1">Sub-tasks are excluded from prioritization.</p>
+                    <p>No incomplete {selectedIssueType}s found in {selectedProject?.key}.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1341,7 +1410,7 @@ export default function HyperadaptivePrioritizationEngine() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search tickets by title or key..."
+                        placeholder="Search by title or key..."
                         value={ticketSearchQuery}
                         onChange={(e) => setTicketSearchQuery(e.target.value)}
                         className="pl-10"
@@ -1350,19 +1419,28 @@ export default function HyperadaptivePrioritizationEngine() {
                     
                     <Select value={selectedTicket?.key || ''} onValueChange={handleTicketSelect}>
                       <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Select a ticket to prioritize..." />
+                        <SelectValue placeholder={`Select a ${selectedIssueType} to prioritize...`} />
                       </SelectTrigger>
                       <SelectContent className="max-h-80">
-                        {filteredTickets.length === 0 ? (
+                        {filteredIncompleteItems.length === 0 ? (
                           <div className="p-4 text-center text-sm text-muted-foreground">
-                            No tickets found matching &quot;{ticketSearchQuery}&quot;
+                            No items found matching &quot;{ticketSearchQuery}&quot;
                           </div>
                         ) : (
-                          filteredTickets.map((issue) => (
+                          filteredIncompleteItems.map((issue) => (
                             <SelectItem key={issue.key} value={issue.key}>
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="font-mono text-xs">{issue.key}</Badge>
-                                <Badge variant="secondary" className="text-xs">{issue.issueType}</Badge>
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`text-xs ${
+                                    issue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                                    issue.status === 'To Do' ? 'bg-gray-100 text-gray-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                  }`}
+                                >
+                                  {issue.status}
+                                </Badge>
                                 <span className="truncate max-w-md">{issue.title}</span>
                               </div>
                             </SelectItem>
@@ -1372,7 +1450,7 @@ export default function HyperadaptivePrioritizationEngine() {
                     </Select>
                     
                     <p className="text-xs text-muted-foreground">
-                      {epicChildren.length} tickets in Epic (Stories, Tasks, Bugs)
+                      {incompleteItems.length} incomplete {selectedIssueType}s available
                     </p>
                   </div>
                 )}

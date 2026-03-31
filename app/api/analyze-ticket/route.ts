@@ -20,7 +20,7 @@ const ifsAnalysisSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { ticketContent, organizationalContext, resourceCapacity, issueType, parentEpic } = await req.json()
+    const { ticketContent, organizationalContext, resourceCapacity, issueType, completedWorkSummary } = await req.json()
 
     if (!ticketContent) {
       return Response.json(
@@ -30,6 +30,19 @@ export async function POST(req: Request) {
     }
 
     const systemPrompt = `You are an expert business analyst specializing in prioritization frameworks. Your task is to analyze JIRA tickets and provide IFS (Impact-Feasibility-Scalability) scores.
+
+## Context Understanding:
+The organizational context you receive includes:
+1. **Executive Summaries** - Strategic priorities and organizational goals
+2. **Completed Work** - Previously completed items at the same hierarchy level and parent levels
+
+Use this context to:
+- Understand what has already been built/completed
+- Identify patterns in completed work that inform feasibility estimates
+- Assess strategic alignment based on Executive Summary priorities
+- Consider if this work builds on or relates to completed items
+
+${completedWorkSummary ? `\n**Completed Work Summary**: ${completedWorkSummary}` : ''}
 
 ## Issue Type Context:
 ${issueType === 'Story' ? `This is a **Story** - a user-facing feature or capability. Focus on:
@@ -48,7 +61,10 @@ ${issueType === 'Epic' ? `This is an **Epic** - a large body of work. Consider:
 - Strategic scope and organizational impact
 - Multiple team coordination needs
 - Long-term value and dependencies` : ''}
-${parentEpic ? `\nParent Epic: ${parentEpic} - Consider how this ticket contributes to the Epic's overall goals.` : ''}
+${issueType === 'Sub-task' ? `This is a **Sub-task** - a smaller piece of work under a Story/Task. Consider:
+- Specific implementation detail
+- Contribution to parent Story/Task completion
+- Dependencies on other sub-tasks` : ''}
 
 ## Scoring Guidelines:
 
