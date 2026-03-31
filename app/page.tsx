@@ -383,19 +383,23 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Load Epic children when Epic is selected
   const loadEpicChildren = async (epicKey: string) => {
+    console.log('[v0] loadEpicChildren called with:', epicKey)
     setIsLoadingChildren(true)
     setEpicChildren([])
     setSelectedTicket(null)
     
     try {
+      console.log('[v0] Fetching children from:', `/api/jira/epics/${epicKey}/children`)
       const response = await fetch(`/api/jira/epics/${epicKey}/children`)
       const data = await response.json()
+      
+      console.log('[v0] Epic children response:', { ok: response.ok, count: data.children?.length, error: data.error })
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load epic children')
       }
       
-      setEpicChildren(data.children)
+      setEpicChildren(data.children || [])
       
       if (data.children.length === 0) {
         toast({
@@ -443,7 +447,9 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Handle Epic selection
   const handleEpicSelect = (epicKey: string) => {
+    console.log('[v0] handleEpicSelect called with:', epicKey)
     const epic = projectEpics.find(e => e.key === epicKey)
+    console.log('[v0] Found epic:', epic?.key, epic?.title)
     if (epic) {
       setSelectedEpic(epic)
       loadEpicChildren(epicKey)
