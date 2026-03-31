@@ -14,9 +14,7 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    console.log(`[v0] Fetching JIRA issues for project: ${projectKey}`)
     const issues = await getProjectIssues(projectKey, maxResults)
-    console.log(`[v0] Successfully fetched ${issues.length} issues from JIRA`)
     
     // Transform issues to our internal format
     const transformedIssues = issues.map(transformIssue)

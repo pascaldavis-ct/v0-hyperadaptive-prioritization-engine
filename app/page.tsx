@@ -18,6 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { useToast } from '@/hooks/use-toast'
 import {
   Brain,
@@ -28,6 +41,8 @@ import {
   Layers,
   Info,
   ChevronDown,
+  ChevronsUpDown,
+  Check,
   Database,
   FileEdit,
   Search,
@@ -209,6 +224,7 @@ export default function HyperadaptivePrioritizationEngine() {
   const [selectedProject, setSelectedProject] = useState<JiraProject | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
   const [projectSearchQuery, setProjectSearchQuery] = useState('')
+  const [projectComboboxOpen, setProjectComboboxOpen] = useState(false)
   
   // Step 1: Context Input
   const [contextMethod, setContextMethod] = useState<'manual' | 'pdf' | 'ticket'>('manual')
@@ -839,46 +855,73 @@ export default function HyperadaptivePrioritizationEngine() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {/* Search Input */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search projects by name or key..."
-                        value={projectSearchQuery}
-                        onChange={(e) => setProjectSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    
-                    {/* Project Select */}
-                    <Select value={selectedProject?.key || ''} onValueChange={handleProjectSelect}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Select a project..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {filteredProjects.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            No projects found matching &quot;{projectSearchQuery}&quot;
-                          </div>
-                        ) : (
-                          filteredProjects.map((project) => (
-                            <SelectItem key={project.key} value={project.key}>
-                              <div className="flex items-center gap-2">
-                                {project.avatar && (
-                                  <img src={project.avatar} alt="" className="h-5 w-5 rounded" />
-                                )}
-                                <span className="font-mono text-sm">{project.key}</span>
-                                <span className="text-muted-foreground">-</span>
-                                <span>{project.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {/* Searchable Project Combobox */}
+                    <Popover open={projectComboboxOpen} onOpenChange={setProjectComboboxOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={projectComboboxOpen}
+                          className="w-full h-12 justify-between"
+                        >
+                          {selectedProject ? (
+                            <div className="flex items-center gap-2">
+                              {selectedProject.avatar && (
+                                <img src={selectedProject.avatar} alt="" className="h-5 w-5 rounded" />
+                              )}
+                              <span className="font-mono text-sm">{selectedProject.key}</span>
+                              <span className="text-muted-foreground">-</span>
+                              <span className="truncate">{selectedProject.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Search and select a project...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command>
+                          <CommandInput 
+                            placeholder="Search projects by name or key..." 
+                            value={projectSearchQuery}
+                            onValueChange={setProjectSearchQuery}
+                          />
+                          <CommandList className="max-h-[300px]">
+                            <CommandEmpty>No projects found.</CommandEmpty>
+                            <CommandGroup>
+                              {filteredProjects.map((project) => (
+                                <CommandItem
+                                  key={project.key}
+                                  value={`${project.key} ${project.name}`}
+                                  onSelect={() => {
+                                    handleProjectSelect(project.key)
+                                    setProjectComboboxOpen(false)
+                                    setProjectSearchQuery('')
+                                  }}
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      selectedProject?.key === project.key ? 'opacity-100' : 'opacity-0'
+                                    }`}
+                                  />
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    {project.avatar && (
+                                      <img src={project.avatar} alt="" className="h-5 w-5 rounded shrink-0" />
+                                    )}
+                                    <span className="font-mono text-sm shrink-0">{project.key}</span>
+                                    <span className="text-muted-foreground shrink-0">-</span>
+                                    <span className="truncate">{project.name}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     
                     <p className="text-xs text-muted-foreground">
-                      {projects.length} projects available (sorted A-Z)
+                      {projects.length} projects available (sorted A-Z) - Type to search
                     </p>
                   </div>
                 )}
