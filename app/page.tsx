@@ -97,6 +97,10 @@ interface OverrideHistoryEntry {
   timestamp: Date
 }
 
+// Archetype thresholds calibrated for realistic scoring (most scores 3-6 range)
+// Total Score = I × F × S
+// Typical range: 3×4×3=36 to 6×6×6=216
+// Expected distribution: Most tickets 40-100, exceptional >150
 function getArchetype(
   totalScore: number,
   impact: number,
@@ -104,7 +108,9 @@ function getArchetype(
   feasibility: number,
   workType: 'enablement' | 'activation'
 ): Archetype {
-  if (totalScore > 100) {
+  // Transformer: Exceptional across all dimensions (top 5%)
+  // Requires high scores in ALL dimensions: 6+ average = 216+, or 7×6×5=210
+  if (totalScore > 150) {
     return {
       name: 'Transformer',
       action: 'Immediate Delivery',
@@ -114,7 +120,8 @@ function getArchetype(
     }
   }
 
-  if (impact >= 7 && scalability >= 7 && feasibility <= 4 && workType === 'enablement') {
+  // Foundation: High strategic value but complex implementation
+  if (impact >= 6 && scalability >= 6 && feasibility <= 4 && workType === 'enablement') {
     return {
       name: 'The Foundation',
       action: 'Fund Infrastructure (Enablement)',
@@ -124,7 +131,8 @@ function getArchetype(
     }
   }
 
-  if (feasibility >= 7 && impact >= 4 && impact <= 7) {
+  // Quick Win: Easy to do with decent payoff (25% of tickets)
+  if (feasibility >= 6 && impact >= 4 && impact <= 6 && totalScore >= 60) {
     return {
       name: 'Quick Win',
       action: 'Build Momentum',
@@ -134,7 +142,9 @@ function getArchetype(
     }
   }
 
-  if (totalScore >= 40 && totalScore <= 74) {
+  // Experiment: Moderate potential, needs validation (30% of tickets)
+  // 4×4×4=64 to 5×5×5=125 range
+  if (totalScore >= 50 && totalScore <= 125) {
     return {
       name: 'The Experiment',
       action: 'Time-box Prompting Party',
@@ -144,7 +154,8 @@ function getArchetype(
     }
   }
 
-  if (scalability <= 3 && feasibility >= 7) {
+  // Money Pit: Easy but won't scale
+  if (scalability <= 3 && feasibility >= 6) {
     return {
       name: 'Money Pit',
       action: 'Defer - Manual/Non-Scalable',
@@ -154,7 +165,9 @@ function getArchetype(
     }
   }
 
-  if (totalScore < 20) {
+  // Noise: Low value across dimensions (20% of tickets)
+  // Below 3×4×3=36 or 4×3×3=36
+  if (totalScore < 40) {
     return {
       name: 'The Noise',
       action: 'Discard',
@@ -164,6 +177,7 @@ function getArchetype(
     }
   }
 
+  // Under Review: Doesn't fit other categories
   return {
     name: 'Under Review',
     action: 'Further Analysis Needed',
