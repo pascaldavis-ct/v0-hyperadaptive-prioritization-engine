@@ -973,14 +973,14 @@ export default function HyperadaptivePrioritizationEngine() {
                       <span className="font-medium">{selectedProject.name}</span>
                       <Badge variant="outline" className="font-mono">{selectedProject.key}</Badge>
                     </div>
-                    {isLoadingIssues ? (
+                    {isLoadingEpics ? (
                       <p className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
                         <Spinner className="h-3 w-3" />
-                        Loading issues...
+                        Loading epics...
                       </p>
                     ) : (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {projectIssues.length} issues available for prioritization
+                        {projectEpics.length} epics available for prioritization
                       </p>
                     )}
                   </div>
