@@ -380,6 +380,10 @@ export default function HyperadaptivePrioritizationEngine() {
     setCompletedWork([])
     setCompletedByType({})
     setSelectedTicket(null)
+    // Clear previous context when switching projects
+    setClientContext('')
+    setContextTitle('')
+    setLoadedContextTickets([])
     
     try {
       const response = await fetch(`/api/jira/context?projectKey=${projectKey}`)
@@ -401,6 +405,9 @@ export default function HyperadaptivePrioritizationEngine() {
         setClientContext(execSummaryContent)
         setContextTitle(`Executive Summary Context (${data.executiveSummaries.length} ticket${data.executiveSummaries.length > 1 ? 's' : ''})`)
         setLoadedContextTickets(data.executiveSummaries.map((t: TransformedIssue) => t.key))
+      } else {
+        // No executive summaries found - set default empty state
+        setContextTitle(`No Executive Summaries in ${projectKey}`)
       }
       
       toast({
