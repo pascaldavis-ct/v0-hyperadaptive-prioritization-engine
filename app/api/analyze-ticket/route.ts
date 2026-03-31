@@ -20,7 +20,7 @@ const ifsAnalysisSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { ticketContent, organizationalContext, resourceCapacity, issueType, completedWorkSummary } = await req.json()
+    const { ticketContent, organizationalContext, issueType, completedWorkSummary } = await req.json()
 
     if (!ticketContent) {
       return Response.json(
@@ -100,9 +100,6 @@ DEFAULT ASSUMPTION: If the ticket lacks explicit evidence for a score, default t
 - "enablement": Infrastructure, platforms, APIs, data pipelines, foundational capabilities
 - "activation": Direct feature delivery, customer-facing changes, immediate value
 ${issueType === 'Bug' ? '\nNote: Most bugs are "activation" (fixing existing features), unless they involve infrastructure improvements.' : ''}
-
-${resourceCapacity === 'low' ? '\nNote: Resource capacity is LOW - factor this into feasibility assessment (reduce by 1-2 points if implementation is resource-intensive).' : ''}
-${resourceCapacity === 'high' ? '\nNote: Resource capacity is HIGH - teams have bandwidth for complex implementations.' : ''}
 
 Analyze the ticket content in the context of the organizational priorities provided. Be specific in your rationale, citing actual content from the ticket.`
 

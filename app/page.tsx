@@ -45,7 +45,7 @@ import {
   Check,
   CheckSquare,
   Database,
-  FileEdit,
+  
   Search,
   Gauge,
   Target,
@@ -66,7 +66,7 @@ import {
   Unlock,
   Plus,
   AlertCircle,
-  Upload,
+  
   FileText,
   FolderOpen,
 } from 'lucide-react'
@@ -231,15 +231,10 @@ export default function HyperadaptivePrioritizationEngine() {
   const [contextMethod, setContextMethod] = useState<'manual' | 'pdf' | 'ticket'>('manual')
   const [clientContext, setClientContext] = useState('')
   const [contextTitle, setContextTitle] = useState('')
-  const [resourceCapacity, setResourceCapacity] = useState<'high' | 'medium' | 'low'>('medium')
   
   // AI-detected organizational focus (derived from context analysis)
   const [detectedOrganizationalFocus, setDetectedOrganizationalFocus] = useState<string>('')
   const [strategicAlignmentScore, setStrategicAlignmentScore] = useState<number>(0)
-  const [isUploadingPdf, setIsUploadingPdf] = useState(false)
-  const [contextTicketKey, setContextTicketKey] = useState('')
-  const [isLoadingContextTicket, setIsLoadingContextTicket] = useState(false)
-  const [loadedContextTickets, setLoadedContextTickets] = useState<string[]>([])
   
   // Step 2: Context & Ticket Selection (Hierarchical)
   // Auto-loaded context data
@@ -383,7 +378,6 @@ export default function HyperadaptivePrioritizationEngine() {
     // Clear previous context when switching projects
     setClientContext('')
     setContextTitle('')
-    setLoadedContextTickets([])
     
     try {
       const response = await fetch(`/api/jira/context?projectKey=${projectKey}`)
@@ -404,7 +398,6 @@ export default function HyperadaptivePrioritizationEngine() {
         ).join('\n\n')
         setClientContext(execSummaryContent)
         setContextTitle(`Executive Summary Context (${data.executiveSummaries.length} ticket${data.executiveSummaries.length > 1 ? 's' : ''})`)
-        setLoadedContextTickets(data.executiveSummaries.map((t: TransformedIssue) => t.key))
       } else {
         // No executive summaries found - set default empty state
         setContextTitle(`No Executive Summaries in ${projectKey}`)
@@ -496,149 +489,6 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Handle PDF upload
-  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    
-    setIsUploadingPdf(true)
-    
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const response = await fetch('/api/parse-pdf', {
-        method: 'POST',
-        body: formData,
-      })
-      
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to parse PDF')
-      }
-      
-      setClientContext(data.text)
-      setContextTitle(file.name.replace('.pdf', ''))
-      
-      toast({
-        title: 'PDF Parsed Successfully',
-        description: `Extracted ${data.numPages} page(s) of content.`,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to parse PDF'
-      toast({
-        title: 'PDF Upload Error',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsUploadingPdf(false)
-    }
-  }
-
-  // Load context from Executive Summary tickets in the selected project
-  const loadExecutiveSummaryTickets = async () => {
-    if (!selectedProject) {
-      toast({
-        title: 'Project Required',
-        description: 'Please select a JIRA project first.',
-        variant: 'destructive',
-      })
-      return
-    }
-    
-    setIsLoadingContextTicket(true)
-    setLoadedContextTickets([])
-    
-    try {
-      // Search for tickets containing "Executive Summary" in the title within the selected project
-      const response = await fetch(`/api/jira/issues?projectKey=${selectedProject.key}&maxResults=100`)
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to search tickets')
-      }
-      
-      const issues = data.issues as TransformedIssue[]
-      
-      // Filter for tickets containing "Executive Summary" in the title (case-insensitive)
-      const executiveSummaryTickets = issues.filter(issue => 
-        issue.title.toLowerCase().includes('executive summary')
-      )
-      
-      if (executiveSummaryTickets.length === 0) {
-        toast({
-          title: 'No Executive Summary Tickets Found',
-          description: `No tickets containing "Executive Summary" were found in ${selectedProject.key}.`,
-          variant: 'destructive',
-        })
-        return
-      }
-      
-      // Combine content from all matching tickets
-      const ticketKeys = executiveSummaryTickets.map(t => t.key)
-      const combinedContent = executiveSummaryTickets.map(ticket => {
-        const content = ticket.description || ticket.title
-        return `--- ${ticket.key}: ${ticket.title} ---\n${content}`
-      }).join('\n\n')
-      
-      setClientContext(combinedContent)
-      setContextTitle(`Executive Summary Context (${ticketKeys.length} ticket${ticketKeys.length > 1 ? 's' : ''})`)
-      setLoadedContextTickets(ticketKeys)
-      
-      toast({
-        title: 'Executive Summary Loaded',
-        description: `Loaded context from ${ticketKeys.length} ticket${ticketKeys.length > 1 ? 's' : ''}: ${ticketKeys.join(', ')}`,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load tickets'
-      toast({
-        title: 'Error Loading Executive Summary',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoadingContextTicket(false)
-    }
-  }
-  
-  // Load context from a specific JIRA ticket by key
-  const loadContextFromTicket = async () => {
-    if (!contextTicketKey.trim()) return
-    
-    setIsLoadingContextTicket(true)
-    setLoadedContextTickets([])
-    
-    try {
-      const response = await fetch(`/api/jira/issue/${contextTicketKey}`)
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load ticket')
-      }
-      
-      const issue = data.issue as TransformedIssue
-      setClientContext(issue.description || issue.title)
-      setContextTitle(`${issue.key}: ${issue.title}`)
-      setLoadedContextTickets([issue.key])
-      
-      toast({
-        title: 'Context Loaded from Ticket',
-        description: `Loaded ${issue.key}`,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load ticket'
-      toast({
-        title: 'Error Loading Ticket',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoadingContextTicket(false)
-    }
-  }
-
   // Confirm context and proceed to Step 2
   const handleConfirmContext = () => {
     if (!selectedProject) {
@@ -716,7 +566,6 @@ export default function HyperadaptivePrioritizationEngine() {
         body: JSON.stringify({
           ticketContent,
           organizationalContext: fullContext,
-          resourceCapacity,
           issueType: selectedTicket.issueType,
           completedWorkSummary: `${hierarchicalContext.completedWork.length} completed ${hierarchicalContext.contextTypes.join('/')} items`,
         }),
@@ -728,7 +577,6 @@ export default function HyperadaptivePrioritizationEngine() {
       }
       
       const data = await response.json()
-      console.log('[v0] Analysis response:', data)
       
       if (!data.analysis) {
         throw new Error('No analysis returned from API')
@@ -780,7 +628,7 @@ export default function HyperadaptivePrioritizationEngine() {
         variant: 'destructive',
       })
     }
-  }, [selectedTicket, hierarchicalContext, resourceCapacity, toast])
+  }, [selectedTicket, hierarchicalContext, toast])
 
   // Handle score changes
   const handleSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
@@ -1079,197 +927,41 @@ export default function HyperadaptivePrioritizationEngine() {
               </CardContent>
             </Card>
 
-            {/* Context Input */}
+            {/* Additional Notes (Optional - Collapsible) */}
             <Card className={!selectedProject ? 'opacity-50 pointer-events-none' : ''}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Client Context
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Provide context about the client/organization to improve prioritization accuracy
-                </p>
+              <CardHeader className="pb-3">
+                <button
+                  onClick={() => setContextMethod(contextMethod === 'manual' ? 'ticket' : 'manual')}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    Additional Notes
+                    <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                  </CardTitle>
+                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                </button>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Context Method Selection */}
-                <div className="flex gap-2">
-                  <Button
-                    variant={contextMethod === 'manual' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setContextMethod('manual')}
-                    className="flex-1"
-                  >
-                    <FileEdit className="mr-2 h-4 w-4" />
-                    Manual Entry
-                  </Button>
-                  <Button
-                    variant={contextMethod === 'pdf' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setContextMethod('pdf')}
-                    className="flex-1"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload PDF
-                  </Button>
-                  <Button
-                    variant={contextMethod === 'ticket' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setContextMethod('ticket')}
-                    className="flex-1"
-                  >
-                    <Database className="mr-2 h-4 w-4" />
-                    From Ticket
-                  </Button>
-                </div>
-
-                {/* PDF Upload */}
-                {contextMethod === 'pdf' && (
-                  <div className="space-y-2">
-                    <Label>Upload PDF Document</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handlePdfUpload}
-                        disabled={isUploadingPdf}
-                        className="flex-1"
-                      />
-                      {isUploadingPdf && <Spinner className="h-4 w-4" />}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Upload a PDF containing client context, requirements, or discovery notes.
-                    </p>
-                  </div>
-                )}
-
-                {/* Ticket Context */}
-                {contextMethod === 'ticket' && (
-                  <div className="space-y-4">
-                    {/* Auto-load Executive Summary */}
-                    <div className="space-y-2">
-                      <Label>Load Executive Summary Tickets</Label>
-                      <Button 
-                        onClick={loadExecutiveSummaryTickets} 
-                        disabled={isLoadingContextTicket || !selectedProject}
-                        className="w-full"
-                        variant="secondary"
-                      >
-                        {isLoadingContextTicket ? (
-                          <>
-                            <Spinner className="mr-2 h-4 w-4" />
-                            Searching...
-                          </>
-                        ) : (
-                          <>
-                            <Search className="mr-2 h-4 w-4" />
-                            Find &quot;Executive Summary&quot; Tickets
-                          </>
-                        )}
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Automatically finds and loads all tickets containing &quot;Executive Summary&quot; in the title from the selected project.
-                      </p>
-                    </div>
-                    
-                    {/* Loaded tickets display */}
-                    {loadedContextTickets.length > 0 && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-medium mb-1">Loaded Tickets:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {loadedContextTickets.map(key => (
-                            <Badge key={key} variant="secondary" className="font-mono text-xs">
-                              {key}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Or load specific ticket */}
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">Or load specific ticket</span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Load by Ticket Key</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Enter ticket key (e.g., PROJ-123)"
-                          value={contextTicketKey}
-                          onChange={(e) => setContextTicketKey(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button 
-                          onClick={loadContextFromTicket} 
-                          disabled={isLoadingContextTicket || !contextTicketKey.trim()}
-                        >
-                          {isLoadingContextTicket ? <Spinner className="h-4 w-4" /> : 'Load'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Context Title */}
-                <div className="space-y-2">
-                  <Label>Context Title</Label>
-                  <Input
-                    placeholder="e.g., Q4 Digital Transformation Initiative"
-                    value={contextTitle}
-                    onChange={(e) => setContextTitle(e.target.value)}
-                  />
-                </div>
-
-                {/* Client Context Text */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label>Client Context</Label>
-                    <div className="group relative">
-                      <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
-                      <div className="absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
-                        <p className="font-medium text-foreground mb-1">Client Context</p>
-                        <p className="text-muted-foreground">
-                          Describe the organization&apos;s industry, size, current state, and strategic objectives.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              {contextMethod === 'manual' && (
+                <CardContent className="pt-0 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Add extra context not captured in JIRA (e.g., meeting notes, verbal decisions).
+                  </p>
                   <Textarea
-                    placeholder="Describe the client organization: industry, size, current systems, strategic goals, key stakeholders, and any critical constraints or deadlines..."
+                    placeholder="Add any additional context that may help with prioritization..."
                     value={clientContext}
                     onChange={(e) => setClientContext(e.target.value)}
-                    className="min-h-32 resize-none"
+                    className="min-h-20 resize-none text-sm"
                   />
-                </div>
-
-                {/* Resource Capacity */}
-                <div className="space-y-2">
-                  <Label>Resource Capacity</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['high', 'medium', 'low'] as const).map((level) => (
-                      <Button
-                        key={level}
-                        variant={resourceCapacity === level ? 'default' : 'outline'}
-                        onClick={() => setResourceCapacity(level)}
-                        className="capitalize"
-                      >
-                        {level}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
+                </CardContent>
+              )}
+              <CardContent className={contextMethod === 'manual' ? 'pt-0' : ''}>
                 <Button 
                   onClick={handleConfirmContext} 
                   className="w-full h-12"
                   disabled={!selectedProject}
                 >
-                  Confirm Context & Select Ticket
+                  Continue to Ticket Selection
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </CardContent>
@@ -1288,7 +980,7 @@ export default function HyperadaptivePrioritizationEngine() {
                   <div>
                     <span className="font-medium text-foreground">Context Active:</span>
                     <span className="ml-2 text-muted-foreground">
-                      {selectedProject?.name} | {resourceCapacity} capacity
+                      {selectedProject?.name} | {executiveSummaries.length} Exec Summaries + {completedWork.length} Completed
                     </span>
                   </div>
                 </div>
@@ -1296,8 +988,8 @@ export default function HyperadaptivePrioritizationEngine() {
                   Change
                 </Button>
               </div>
-              {contextTitle && (
-                <p className="text-sm text-muted-foreground mt-2 pl-8">{contextTitle}</p>
+              {clientContext && (
+                <p className="text-sm text-muted-foreground mt-2 pl-8">+ Additional notes provided</p>
               )}
             </div>
 
