@@ -482,274 +482,84 @@ export default function HyperadaptivePrioritizationEngine() {
   }, [organizationalFocus, selectedTicket])
 
   // Client-Side Strategic Inference Engine
-  const analyzeInitiativeStrategicValue = useCallback((description: string, context: string): {
-    impactScore: number
-    feasibilityScore: number
-    scalabilityScore: number
-    detectedWorkType: 'enablement' | 'activation'
-    rationale: {
-      strategic: string
-      impact: string
-      feasibility: string
-      scalability: string
-      primaryBottleneck: string
-    }
-  } => {
-    const text = `${description} ${context}`.toLowerCase()
-    
-    // Impact Signals Detection
-    let impactScore = 5
-    const impactSignals: string[] = []
-    
-    // JIRA Priority field detection (Priority: Highest, High, Medium, Low, Lowest)
-    if (text.includes('priority: highest') || text.includes('priority: critical')) {
-      impactScore = Math.max(impactScore, 9)
-      impactSignals.push('JIRA Priority: Highest/Critical')
-    } else if (text.includes('priority: high')) {
-      impactScore = Math.max(impactScore, 8)
-      impactSignals.push('JIRA Priority: High')
-    } else if (text.includes('priority: low') || text.includes('priority: lowest')) {
-      impactScore = Math.min(impactScore, 4)
-      impactSignals.push('JIRA Priority: Low')
-    }
-    
-    // Specific keyword signals
-    if (text.includes('14-day') || text.includes('14 day') || text.includes('two week')) {
-      impactScore = Math.max(impactScore, 9)
-      impactSignals.push('critical timeline bottleneck (14-day)')
-    }
-    if (text.includes('336 hour') || text.includes('336-hour')) {
-      impactScore = Math.max(impactScore, 10)
-      impactSignals.push('severe time sink (336 hours)')
-    }
-    if (text.includes('$4m') || text.includes('$4 million') || text.includes('4 million') || text.includes('million dollar')) {
-      impactScore = Math.max(impactScore, 10)
-      impactSignals.push('high-value opportunity ($M+)')
-    }
-    if (text.includes('bottleneck') || text.includes('blocker') || text.includes('blocked')) {
-      impactScore = Math.max(impactScore, 8)
-      impactSignals.push('workflow bottleneck identified')
-    }
-    if (text.includes('revenue') || text.includes('cost saving') || text.includes('efficiency') || text.includes('roi')) {
-      impactScore = Math.max(impactScore, 7)
-      impactSignals.push('direct business value')
-    }
-    if (text.includes('manual') || text.includes('repetitive') || text.includes('time-consuming')) {
-      impactScore = Math.max(impactScore, 7)
-      impactSignals.push('manual process automation potential')
-    }
-    if (text.includes('urgent') || text.includes('asap') || text.includes('immediately')) {
-      impactScore = Math.max(impactScore, 8)
-      impactSignals.push('urgent timeline requirement')
-    }
-    if (text.includes('customer') || text.includes('client') || text.includes('stakeholder')) {
-      impactScore = Math.max(impactScore, 6)
-      impactSignals.push('customer-facing impact')
-    }
-    
-    // Feasibility Signals Detection
-    let feasibilityScore = 5
-    const feasibilitySignals: string[] = []
-    
-    // Issue type signals
-    if (text.includes('type: bug') || text.includes('type: defect')) {
-      feasibilityScore = Math.max(feasibilityScore, 7)
-      feasibilitySignals.push('bug fix (typically straightforward)')
-    }
-    if (text.includes('type: epic')) {
-      feasibilityScore = Math.min(feasibilityScore, 5)
-      feasibilitySignals.push('epic (large scope)')
-    }
-    if (text.includes('type: task') || text.includes('type: sub-task')) {
-      feasibilityScore = Math.max(feasibilityScore, 7)
-      feasibilitySignals.push('well-defined task scope')
-    }
-    
-    // Complexity signals
-    if (text.includes('technical debt') || text.includes('legacy system') || text.includes('legacy')) {
-      feasibilityScore = Math.min(feasibilityScore, 4)
-      feasibilitySignals.push('technical debt concerns')
-    }
-    if (text.includes('complex integration') || text.includes('enterprise system') || text.includes('complex')) {
-      feasibilityScore = Math.min(feasibilityScore, 5)
-      feasibilitySignals.push('complex integration required')
-    }
-    if (text.includes('ready to deploy') || text.includes('plug and play') || text.includes('simple') || text.includes('straightforward')) {
-      feasibilityScore = Math.max(feasibilityScore, 9)
-      feasibilitySignals.push('high deployment readiness')
-    }
-    if (text.includes('api available') || text.includes('existing data') || text.includes('structured data') || text.includes('api')) {
-      feasibilityScore = Math.max(feasibilityScore, 7)
-      feasibilitySignals.push('data infrastructure ready')
-    }
-    if (text.includes('poc') || text.includes('proof of concept') || text.includes('prototype') || text.includes('spike')) {
-      feasibilityScore = Math.max(feasibilityScore, 7)
-      feasibilitySignals.push('prior validation exists')
-    }
-    if (text.includes('status: done') || text.includes('status: closed')) {
-      feasibilityScore = Math.max(feasibilityScore, 10)
-      feasibilitySignals.push('already completed')
-    }
-    if (text.includes('status: in progress') || text.includes('status: in development')) {
-      feasibilityScore = Math.max(feasibilityScore, 8)
-      feasibilitySignals.push('work already started')
-    }
-    
-    // Resource capacity adjustment
-    if (resourceCapacity === 'low') {
-      feasibilityScore = Math.max(1, feasibilityScore - 2)
-      feasibilitySignals.push('limited resource capacity')
-    } else if (resourceCapacity === 'high') {
-      feasibilityScore = Math.min(10, feasibilityScore + 1)
-      feasibilitySignals.push('high resource availability')
-    }
-    
-    // Scalability Signals Detection
-    let scalabilityScore = 5
-    const scalabilitySignals: string[] = []
-    
-    // Automation signals
-    if (text.includes('autonomous') || text.includes('self-service') || text.includes('automated') || text.includes('automation')) {
-      scalabilityScore = Math.max(scalabilityScore, 9)
-      scalabilitySignals.push('autonomous operation potential')
-    }
-    if (text.includes('50,000') || text.includes('50000') || text.includes('high volume') || text.includes('bulk')) {
-      scalabilityScore = Math.max(scalabilityScore, 10)
-      scalabilitySignals.push('high-volume processing')
-    }
-    if (text.includes('global') || text.includes('multi-region') || text.includes('enterprise-wide') || text.includes('cross-team')) {
-      scalabilityScore = Math.max(scalabilityScore, 9)
-      scalabilitySignals.push('global deployment scope')
-    }
-    if (text.includes('reusable') || text.includes('template') || text.includes('modular') || text.includes('component') || text.includes('library')) {
-      scalabilityScore = Math.max(scalabilityScore, 8)
-      scalabilitySignals.push('reusable component architecture')
-    }
-    if (text.includes('one-off') || text.includes('single use') || text.includes('pilot only') || text.includes('prototype')) {
-      scalabilityScore = Math.min(scalabilityScore, 4)
-      scalabilitySignals.push('limited reuse potential')
-    }
-    if (text.includes('ai') || text.includes('machine learning') || text.includes('ml') || text.includes('llm')) {
-      scalabilityScore = Math.max(scalabilityScore, 8)
-      scalabilitySignals.push('AI/ML scaling potential')
-    }
-    if (text.includes('workflow') || text.includes('pipeline') || text.includes('process')) {
-      scalabilityScore = Math.max(scalabilityScore, 7)
-      scalabilitySignals.push('workflow automation')
-    }
-    if (text.includes('integration') || text.includes('connector') || text.includes('sync')) {
-      scalabilityScore = Math.max(scalabilityScore, 7)
-      scalabilitySignals.push('system integration potential')
-    }
-    
-    // Detect work type
-    let detectedWorkType: 'enablement' | 'activation' = 'activation'
-    if (text.includes('foundation') || text.includes('infrastructure') || text.includes('platform') || text.includes('enablement') || text.includes('api') || text.includes('data pipeline')) {
-      detectedWorkType = 'enablement'
-    }
-    
-    // Build rationale strings
-    const strategicRationale = impactSignals.length > 0 || feasibilitySignals.length > 0 || scalabilitySignals.length > 0
-      ? `Strategic analysis identified ${impactSignals.length + feasibilitySignals.length + scalabilitySignals.length} key signals. ${impactScore >= 8 ? 'High business impact detected.' : ''} ${feasibilityScore <= 5 ? 'Implementation complexity noted.' : ''} ${scalabilityScore >= 8 ? 'Strong scaling potential.' : ''}`
-      : 'Moderate strategic value detected. Consider adding more specific details about bottlenecks, timelines, or scale to improve scoring precision.'
-    
-    const primaryBottleneck = impactSignals.length > 0 
-      ? impactSignals[0].charAt(0).toUpperCase() + impactSignals[0].slice(1)
-      : feasibilitySignals.length > 0 && feasibilityScore < 6
-        ? `Implementation challenge: ${feasibilitySignals[0]}`
-        : 'No critical bottleneck identified'
-    
-    return {
-      impactScore,
-      feasibilityScore,
-      scalabilityScore,
-      detectedWorkType,
-      rationale: {
-        strategic: strategicRationale,
-        impact: impactSignals.length > 0 
-          ? `High Impact identified via: ${impactSignals.join(', ')}.`
-          : 'Moderate impact - no high-value signals detected in description.',
-        feasibility: feasibilitySignals.length > 0
-          ? `Feasibility assessment: ${feasibilitySignals.join(', ')}.`
-          : 'Standard feasibility - no major blockers or accelerators detected.',
-        scalability: scalabilitySignals.length > 0
-          ? `Scalability factors: ${scalabilitySignals.join(', ')}.`
-          : 'Moderate scalability - consider adding automation or reuse patterns.',
-        primaryBottleneck,
-      }
-    }
-  }, [resourceCapacity])
-
-  // Run AI Analysis
+  // Run AI Analysis (LLM-based)
   const runAnalysis = useCallback(async () => {
     if (!selectedTicket) return
     
     setIsAnalyzing(true)
     
-    // Simulate AI "thinking" time for UX
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Include more ticket metadata in the analysis for better scoring
-    const ticketMetadata = [
-      selectedTicket.title,
-      selectedTicket.description || '',
-      `Priority: ${selectedTicket.priority}`,
-      `Type: ${selectedTicket.issueType}`,
+    // Build ticket content for LLM analysis (excluding JIRA priority to allow user override)
+    const ticketContent = [
+      `Title: ${selectedTicket.title}`,
+      `Key: ${selectedTicket.key}`,
+      selectedTicket.description ? `Description: ${selectedTicket.description}` : '',
+      `Issue Type: ${selectedTicket.issueType}`,
       `Status: ${selectedTicket.status}`,
       selectedTicket.labels.length > 0 ? `Labels: ${selectedTicket.labels.join(', ')}` : '',
       selectedTicket.components.length > 0 ? `Components: ${selectedTicket.components.join(', ')}` : '',
     ].filter(Boolean).join('\n')
     
-    const description = ticketMetadata
-    console.log('[v0] Running analysis on ticket:', selectedTicket.key)
-    console.log('[v0] Full ticket metadata for analysis:', description)
-    console.log('[v0] Client context:', clientContext)
-    
-    const result = analyzeInitiativeStrategicValue(description, clientContext)
-    
-    console.log('[v0] AI Analysis result:', {
-      impactScore: result.impactScore,
-      feasibilityScore: result.feasibilityScore,
-      scalabilityScore: result.scalabilityScore,
-      detectedWorkType: result.detectedWorkType,
-    })
-    
-    // Store AI rationale
-    setAiRationale({
-      strategic: result.rationale.strategic,
-      impact: result.rationale.impact,
-      feasibility: result.rationale.feasibility,
-      scalability: result.rationale.scalability,
-      primaryBottleneck: result.rationale.primaryBottleneck,
-    })
-    
-    // Store original AI scores for override detection
-    setAiOriginalScores({
-      impact: result.impactScore,
-      feasibility: result.feasibilityScore,
-      scalability: result.scalabilityScore,
-    })
-    
-    // Set sliders to AI-recommended positions
-    console.log('[v0] Setting scores - Impact:', result.impactScore, 'Feasibility:', result.feasibilityScore, 'Scalability:', result.scalabilityScore)
-    console.log('[v0] Expected totalScore:', result.impactScore * result.feasibilityScore * result.scalabilityScore)
-    
-    setImpact(result.impactScore)
-    setFeasibility(result.feasibilityScore)
-    setScalability(result.scalabilityScore)
-    
-    // Set work type based on detection
-    setWorkType(result.detectedWorkType)
-    
-    // Transition to Step 3
-    setCurrentStep(3)
-    setIsAnalyzing(false)
-    
-    toast({
-      title: 'AI Analysis Complete',
-      description: `IFS Scores: Impact=${result.impactScore}, Feasibility=${result.feasibilityScore}, Scalability=${result.scalabilityScore}`,
-    })
-  }, [selectedTicket, clientContext, analyzeInitiativeStrategicValue, toast])
+    try {
+      // Call LLM-based analysis API
+      const response = await fetch('/api/analyze-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketContent,
+          organizationalContext: clientContext,
+          resourceCapacity,
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Analysis failed')
+      }
+      
+      const { analysis } = await response.json()
+      
+      // Store AI rationale
+      setAiRationale({
+        strategic: analysis.rationale.strategic,
+        impact: analysis.rationale.impact,
+        feasibility: analysis.rationale.feasibility,
+        scalability: analysis.rationale.scalability,
+        primaryBottleneck: analysis.rationale.primaryBottleneck,
+      })
+      
+      // Store original AI scores for override detection
+      setAiOriginalScores({
+        impact: analysis.impactScore,
+        feasibility: analysis.feasibilityScore,
+        scalability: analysis.scalabilityScore,
+      })
+      
+      // Set sliders to AI-recommended positions
+      setImpact(analysis.impactScore)
+      setFeasibility(analysis.feasibilityScore)
+      setScalability(analysis.scalabilityScore)
+      
+      // Set work type based on detection
+      setWorkType(analysis.workType)
+      
+      // Transition to Step 3
+      setCurrentStep(3)
+      setIsAnalyzing(false)
+      
+      toast({
+        title: 'AI Analysis Complete',
+        description: `IFS Scores: Impact=${analysis.impactScore}, Feasibility=${analysis.feasibilityScore}, Scalability=${analysis.scalabilityScore}`,
+      })
+    } catch (error) {
+      console.error('[v0] Analysis error:', error)
+      setIsAnalyzing(false)
+      toast({
+        title: 'Analysis Failed',
+        description: error instanceof Error ? error.message : 'Failed to analyze ticket',
+        variant: 'destructive',
+      })
+    }
+  }, [selectedTicket, clientContext, resourceCapacity, toast])
 
   // Handle score changes
   const handleSliderChange = useCallback((field: 'impact' | 'feasibility' | 'scalability', newValue: number) => {
