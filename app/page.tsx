@@ -230,8 +230,11 @@ export default function HyperadaptivePrioritizationEngine() {
   const [contextMethod, setContextMethod] = useState<'manual' | 'pdf' | 'ticket'>('manual')
   const [clientContext, setClientContext] = useState('')
   const [contextTitle, setContextTitle] = useState('')
-  const [organizationalFocus, setOrganizationalFocus] = useState<string>('')
   const [resourceCapacity, setResourceCapacity] = useState<'high' | 'medium' | 'low'>('medium')
+  
+  // AI-detected organizational focus (derived from context analysis)
+  const [detectedOrganizationalFocus, setDetectedOrganizationalFocus] = useState<string>('')
+  const [strategicAlignmentScore, setStrategicAlignmentScore] = useState<number>(0)
   const [isUploadingPdf, setIsUploadingPdf] = useState(false)
   const [contextTicketKey, setContextTicketKey] = useState('')
   const [isLoadingContextTicket, setIsLoadingContextTicket] = useState(false)
@@ -517,15 +520,6 @@ export default function HyperadaptivePrioritizationEngine() {
       return
     }
     
-    if (!organizationalFocus) {
-      toast({
-        title: 'Focus Required',
-        description: 'Please select an organizational focus.',
-        variant: 'destructive',
-      })
-      return
-    }
-    
     setCurrentStep(2)
     toast({
       title: 'Context Confirmed',
@@ -541,16 +535,9 @@ export default function HyperadaptivePrioritizationEngine() {
     }
   }
 
-  // Strategic Alignment Bonus
-  const hasStrategicBonus = useMemo(() => {
-    if (!organizationalFocus || !selectedTicket) return false
-    const description = selectedTicket.description?.toLowerCase() || ''
-    const title = selectedTicket.title.toLowerCase()
-    const focusLower = organizationalFocus.toLowerCase()
-    return description.includes(focusLower) || title.includes(focusLower)
-  }, [organizationalFocus, selectedTicket])
+  // Strategic Alignment is now determined by LLM (strategicAlignmentScore >= 7 = bonus)
+  const hasStrategicBonus = strategicAlignmentScore >= 7
 
-  // Client-Side Strategic Inference Engine
   // Run AI Analysis (LLM-based)
   const runAnalysis = useCallback(async () => {
     if (!selectedTicket) return
@@ -610,6 +597,10 @@ export default function HyperadaptivePrioritizationEngine() {
       
       // Set work type based on detection
       setWorkType(analysis.workType)
+      
+      // Set AI-detected organizational focus and strategic alignment
+      setDetectedOrganizationalFocus(analysis.organizationalFocus)
+      setStrategicAlignmentScore(analysis.strategicAlignment)
       
       // Transition to Step 3
       setCurrentStep(3)
@@ -1079,23 +1070,6 @@ export default function HyperadaptivePrioritizationEngine() {
                   />
                 </div>
 
-                {/* Organizational Focus */}
-                <div className="space-y-2">
-                  <Label>Organizational Focus</Label>
-                  <Select value={organizationalFocus} onValueChange={setOrganizationalFocus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select focus area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OPEX Reduction">OPEX Reduction</SelectItem>
-                      <SelectItem value="Customer Experience">Customer Experience</SelectItem>
-                      <SelectItem value="Developer Productivity">Developer Productivity</SelectItem>
-                      <SelectItem value="Data Privacy">Data Privacy</SelectItem>
-                      <SelectItem value="Process Efficiency">Process Efficiency</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Resource Capacity */}
                 <div className="space-y-2">
                   <Label>Resource Capacity</Label>
@@ -1116,7 +1090,7 @@ export default function HyperadaptivePrioritizationEngine() {
                 <Button 
                   onClick={handleConfirmContext} 
                   className="w-full h-12"
-                  disabled={!selectedProject || !organizationalFocus}
+                  disabled={!selectedProject}
                 >
                   Confirm Context & Select Ticket
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -1137,7 +1111,7 @@ export default function HyperadaptivePrioritizationEngine() {
                   <div>
                     <span className="font-medium text-foreground">Context Active:</span>
                     <span className="ml-2 text-muted-foreground">
-                      {selectedProject?.name} | {organizationalFocus} | {resourceCapacity} capacity
+                      {selectedProject?.name} | {resourceCapacity} capacity
                     </span>
                   </div>
                 </div>
@@ -1395,6 +1369,27 @@ export default function HyperadaptivePrioritizationEngine() {
                       <p className="text-sm leading-relaxed text-foreground">{aiRationale.strategic}</p>
                     </div>
                     
+                    {/* AI-Detected Organizational Focus */}
+                    {detectedOrganizationalFocus && (
+                      <div className="flex items-center justify-between rounded-lg border bg-background/50 p-3">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Detected Organizational Focus</Label>
+                          <p className="text-sm font-medium">{detectedOrganizationalFocus}</p>
+                        </div>
+                        <div className="text-right">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Strategic Alignment</Label>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-lg font-bold ${strategicAlignmentScore >= 7 ? 'text-emerald-600' : strategicAlignmentScore >= 5 ? 'text-amber-600' : 'text-red-600'}`}>
+                              {strategicAlignmentScore}/10
+                            </span>
+                            {strategicAlignmentScore >= 7 && (
+                              <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700">+1 Impact</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Primary Bottleneck</Label>
                       <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 border border-orange-500/30 p-3">
@@ -1470,7 +1465,7 @@ export default function HyperadaptivePrioritizationEngine() {
                     )}
                     {hasStrategicBonus && (
                       <Badge variant="outline" className="border-emerald-500/50 text-emerald-600">
-                        Strategic Alignment +1
+                        Strategic Alignment +1 ({detectedOrganizationalFocus})
                       </Badge>
                     )}
                     {makes10xFaster && (

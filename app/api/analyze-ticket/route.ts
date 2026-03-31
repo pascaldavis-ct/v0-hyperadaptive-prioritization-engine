@@ -7,6 +7,8 @@ const ifsAnalysisSchema = z.object({
   feasibilityScore: z.number().min(1).max(10).describe('Feasibility score from 1-10 based on technical complexity, resource requirements, and implementation readiness'),
   scalabilityScore: z.number().min(1).max(10).describe('Scalability score from 1-10 based on reuse potential, automation capabilities, and enterprise-wide applicability'),
   workType: z.enum(['enablement', 'activation']).describe('enablement = foundational/infrastructure work, activation = direct value delivery'),
+  organizationalFocus: z.string().describe('The primary organizational focus area detected from the context (e.g., "Revenue Growth", "Operational Efficiency", "Customer Experience", "Technical Debt", "AI/Automation", "Compliance", etc.)'),
+  strategicAlignment: z.number().min(1).max(10).describe('How well this ticket aligns with the detected organizational focus (1-10)'),
   rationale: z.object({
     strategic: z.string().describe('2-3 sentence strategic assessment of this ticket relative to the organizational context'),
     impact: z.string().describe('Specific reasons for the impact score, citing evidence from the ticket'),
