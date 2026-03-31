@@ -194,8 +194,11 @@ export async function searchIssues(jql: string, maxResults = 50): Promise<JiraIs
 
 // Get only Epics in a project
 export async function getProjectEpics(projectKey: string, maxResults = 100): Promise<JiraIssue[]> {
-  const jql = `project = "${projectKey}" AND issuetype = Epic ORDER BY updated DESC`
+  // Use quotes around "Epic" to handle both standard and custom issue type names
+  const jql = `project = "${projectKey}" AND issuetype = "Epic" ORDER BY updated DESC`
   const fields = ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'components', 'created', 'updated', 'assignee', 'reporter']
+  
+  console.log('[v0] getProjectEpics JQL:', jql)
   
   const data = await jiraFetch<JiraSearchResponse>(
     '/search/jql',
@@ -208,6 +211,8 @@ export async function getProjectEpics(projectKey: string, maxResults = 100): Pro
       }),
     }
   )
+  
+  console.log('[v0] getProjectEpics result:', data.issues?.length || 0, 'epics found')
   
   return data.issues || []
 }

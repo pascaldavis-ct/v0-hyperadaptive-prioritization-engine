@@ -354,6 +354,7 @@ export default function HyperadaptivePrioritizationEngine() {
 
   // Load Epics when project is selected
   const loadProjectEpics = async (projectKey: string) => {
+    console.log('[v0] loadProjectEpics called with:', projectKey)
     setIsLoadingEpics(true)
     setProjectEpics([])
     setSelectedEpic(null)
@@ -361,14 +362,18 @@ export default function HyperadaptivePrioritizationEngine() {
     setSelectedTicket(null)
     
     try {
+      console.log('[v0] Fetching epics from:', `/api/jira/epics?projectKey=${projectKey}`)
       const response = await fetch(`/api/jira/epics?projectKey=${projectKey}`)
       const data = await response.json()
+      
+      console.log('[v0] Epics API response:', { ok: response.ok, epicsCount: data.epics?.length, error: data.error })
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load epics')
       }
       
       setProjectEpics(data.epics)
+      console.log('[v0] Set projectEpics:', data.epics?.length, 'epics')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load epics'
       toast({
