@@ -261,6 +261,9 @@ export default function HyperadaptivePrioritizationEngine() {
   const [incompleteItems, setIncompleteItems] = useState<TransformedIssue[]>([])
   const [isLoadingIncomplete, setIsLoadingIncomplete] = useState(false)
   
+  // Legacy single ticket selection (kept for Step 3 compatibility)
+  const [selectedTicket, setSelectedTicket] = useState<TransformedIssue | null>(null)
+  
   // Batch scoring results
   type BatchResult = {
     key: string
@@ -331,17 +334,6 @@ export default function HyperadaptivePrioritizationEngine() {
       })
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [projects, projectSearchQuery])
-
-  // Filter incomplete items by search query
-  const filteredIncompleteItems = useMemo(() => {
-    return incompleteItems
-      .filter(t => {
-        if (!ticketSearchQuery.trim()) return true
-        const query = ticketSearchQuery.toLowerCase()
-        return t.title.toLowerCase().includes(query) || t.key.toLowerCase().includes(query)
-      })
-      .sort((a, b) => a.title.localeCompare(b.title))
-  }, [incompleteItems, ticketSearchQuery])
 
   // Build hierarchical context based on selected issue type
   const hierarchicalContext = useMemo(() => {
@@ -513,14 +505,6 @@ export default function HyperadaptivePrioritizationEngine() {
       title: 'Context Confirmed',
       description: 'Now select a ticket to prioritize.',
     })
-  }
-
-  // Handle ticket selection (from incomplete items)
-  const handleTicketSelect = (ticketKey: string) => {
-    const ticket = incompleteItems.find(t => t.key === ticketKey)
-    if (ticket) {
-      setSelectedTicket(ticket)
-    }
   }
 
   // Strategic Alignment is now determined by LLM (strategicAlignmentScore >= 7 = bonus)
